@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jq-proxy-service
+  labels:
+    app: jq-proxy-service
+    version: v1
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: jq-proxy-service
+  template:
+    metadata:
+      labels:
+        app: jq-proxy-service
+        version: v1
+    spec:
+      containers:
+      - name: jq-proxy
+        image: jq-proxy-service:latest
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: LOG_LEVEL
+          value: "info"
+        args:
+        - "-config"
+        - "/app/configs/production.json"
+        - "-log-level"
+        - "info"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        volumeMounts:
+        - name: config-volume
+          mountPath: /app/configs
+          readOnly: true
+      volumes:
+      - name: config-volume
+        configMap:
+          name: jq-proxy-config
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jq-proxy-service
+  labels:
+    app: jq-proxy-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: jq-proxy-service
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: jq-proxy-config
+data:
+  production.json: |
+    {
+      "server": {
+        "port": 8080,
+        "read_timeout": 60,
+        "write_timeout": 60
+      },
+      "endpoints": {
+        "user-service": {
+          "name": "user-service",
+          "target": "http://user-service.default.svc.cluster.local"
+        },
+        "order-service": {
+          "name": "order-service",
+          "target": "http://order-service.default.svc.cluster.local"
+        },
+        "inventory-service": {
+          "name": "inventory-service",
+          "target": "http://inventory-service.default.svc.cluster.local"
+        }
+      }
+    }

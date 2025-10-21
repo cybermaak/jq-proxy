@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+  jq-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jq-proxy-production
+    ports:
+      - "8088:8080"
+    volumes:
+      - ./configs:/app/configs:ro
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+    environment:
+      # Application Configuration
+      - LOG_LEVEL=debug
+        # Server Configuration
+      - PROXY_PORT=8080
+      - PROXY_READ_TIMEOUT=30
+      - PROXY_WRITE_TIMEOUT=30
+      # Optional: Add production-specific settings
+      # - PROXY_MAX_CONNECTIONS=1000
+      # - PROXY_IDLE_TIMEOUT=120
+    command: ["-config", "/app/configs/production.json", "-log-level", "info"]
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - proxy-network
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          cpus: "0.5"
+          memory: 256M
+
+networks:
+  proxy-network:
+    driver: bridge

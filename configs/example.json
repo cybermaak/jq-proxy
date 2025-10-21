@@ -1,0 +1,25 @@
+{
+  "server": {
+    "port": 8088,
+    "read_timeout": 30,
+    "write_timeout": 30
+  },
+  "endpoints": {
+    "user-service": {
+      "name": "user-service",
+      "target": "https://jsonplaceholder.typicode.com"
+    },
+    "posts-service": {
+      "name": "posts-service",
+      "target": "https://jsonplaceholder.typicode.com"
+    },
+    "cron.maak.lan": {
+      "name": "cron.maak.lan",
+      "target": "http://cron.maak.lan"
+    },
+    "rapi5fb": {
+      "name": "rapi5fb",
+      "target": "https://rapi5.filebrowser.maak.lab/"
+    }
+  }
+}

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Mock JSON API</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        .endpoint { margin: 20px 0; padding: 10px; background: #f5f5f5; border-radius: 5px; }
+        code { background: #e0e0e0; padding: 2px 4px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <h1>Mock JSON API</h1>
+    <p>This is a mock API server for testing the JQ Proxy Service.</p>
+    
+    <div class="endpoint">
+        <h3>Available Endpoints:</h3>
+        <ul>
+            <li><code>GET /posts.json</code> - List of posts</li>
+            <li><code>GET /users.json</code> - List of users</li>
+        </ul>
+    </div>
+    
+    <div class="endpoint">
+        <h3>Example Proxy Request:</h3>
+        <pre><code>curl -X POST http://localhost:8080/proxy/jsonplaceholder/posts.json \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "method": "GET",
+    "body": null,
+    "transformation": {
+      "posts": "$[*].{id: id, title: title}",
+      "count": "$.length"
+    }
+  }'</code></pre>
+    </div>
+</body>
+</html>

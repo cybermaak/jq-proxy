@@ -1,0 +1,48 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+docs/
+
+# Development files
+.air.toml
+.golangci.yml
+scripts/
+tmp/
+
+# Build artifacts
+bin/
+coverage.out
+coverage.html
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+
+# Test files
+*_test.go
+testdata/
+
+# Docker files (except the one being used)
+Dockerfile.dev
+docker-compose*.yml
+
+# Config files (mounted as volumes)
+configs/
+
+# Node modules (if any)
+node_modules/
+
+# Logs
+*.log
+logs/

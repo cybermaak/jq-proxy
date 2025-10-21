@@ -1,0 +1,21 @@
+{
+  "server": {
+    "port": 8080,
+    "read_timeout": 30,
+    "write_timeout": 30
+  },
+  "endpoints": {
+    "jsonplaceholder": {
+      "name": "jsonplaceholder",
+      "target": "http://jsonplaceholder-mock"
+    },
+    "httpbin": {
+      "name": "httpbin",
+      "target": "http://httpbin-mock"
+    },
+    "external-api": {
+      "name": "external-api",
+      "target": "https://jsonplaceholder.typicode.com"
+    }
+  }
+}

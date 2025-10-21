@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  jq-proxy-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: jq-proxy-dev
+    ports:
+      - "8080:8080"
+    volumes:
+      - .:/app
+      - /app/bin
+      - /app/tmp
+    environment:
+      - LOG_LEVEL=debug
+      - GO_ENV=development
+      - PROXY_PORT=8080
+      - PROXY_READ_TIMEOUT=30
+      - PROXY_WRITE_TIMEOUT=30
+    command: ["air", "-c", ".air.toml"]
+    restart: unless-stopped
+    networks:
+      - proxy-network
+    depends_on:
+      - jsonplaceholder-mock
+
+  # Mock services for development testing
+  jsonplaceholder-mock:
+    image: nginx:alpine
+    container_name: jsonplaceholder-mock
+    ports:
+      - "3001:80"
+    volumes:
+      - ./docker/mock-data:/usr/share/nginx/html:ro
+    networks:
+      - proxy-network
+
+  httpbin-mock:
+    image: kennethreitz/httpbin
+    container_name: httpbin-mock
+    ports:
+      - "3002:80"
+    networks:
+      - proxy-network
+
+networks:
+  proxy-network:
+    driver: bridge

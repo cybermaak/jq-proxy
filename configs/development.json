@@ -1,0 +1,21 @@
+{
+  "server": {
+    "port": 8080,
+    "read_timeout": 30,
+    "write_timeout": 30
+  },
+  "endpoints": {
+    "jsonplaceholder": {
+      "name": "jsonplaceholder",
+      "target": "https://jsonplaceholder.typicode.com"
+    },
+    "httpbin": {
+      "name": "httpbin",
+      "target": "https://httpbin.org"
+    },
+    "local-api": {
+      "name": "local-api",
+      "target": "http://localhost:3000"
+    }
+  }
+}
