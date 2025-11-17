@@ -4,12 +4,28 @@ A configurable JSON REST API proxy service written in Go that accepts requests, 
 
 ## Features
 
-- Configurable endpoint mappings
-- jq-based response transformation
-- Header forwarding with filtering
-- Docker deployment support
-- Comprehensive error handling
-- Structured logging
+- **Configurable endpoint mappings** - Define multiple backend services
+- **jq-based response transformation** - Powerful JSON transformation using jq syntax
+- **Header forwarding with filtering** - Control which headers are forwarded
+- **Request tracing** - Unique request IDs for debugging
+- **Metrics collection** - Track request counts, errors, and response times
+- **Docker deployment support** - Production-ready containerization
+- **Comprehensive error handling** - Detailed error messages with context
+- **Structured logging** - JSON-formatted logs for easy parsing
+
+## Why jq?
+
+This service uses [jq](https://stedolan.github.io/jq/) for response transformation, providing:
+- **Powerful transformations** - Filter, map, reduce, and reshape JSON data
+- **Familiar syntax** - Industry-standard jq query language
+- **Complex operations** - Support for conditionals, functions, and aggregations
+- **Type safety** - Strong typing with clear error messages
+
+Example jq transformations:
+- Extract fields: `{id, name, email}`
+- Filter arrays: `[.[] | select(.active == true)]`
+- Aggregate data: `{total: length, sum: [.[].value] | add}`
+- Nested access: `.user.profile.settings.theme`
 
 ## Quick Start
 
@@ -92,18 +108,77 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
 
 ## API Usage
 
-### jq Transformation
+### Basic Request Format
+
 ```bash
-POST /proxy/{endpoint-name}/path/to/resource?query=params
+POST /proxy/{endpoint-name}/{path}
 Content-Type: application/json
 
 {
-  "method": "GET",
-  "body": null,
-
-  "jq_query": "{result: [.data[] | {id: .id, name: .name}]}"
+  "method": "GET|POST|PUT|PATCH|DELETE",
+  "body": null | {} | [],
+  "transformation_mode": "jq",
+  "jq_query": "jq expression"
 }
 ```
+
+### Examples
+
+#### Simple Field Extraction
+```bash
+curl -X POST http://localhost:8080/proxy/user-service/users/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "method": "GET",
+    "jq_query": "{id, name, email}"
+  }'
+```
+
+Response:
+```json
+{
+  "id": 1,
+  "name": "Leanne Graham",
+  "email": "Sincere@april.biz"
+}
+```
+
+#### Array Transformation
+```bash
+curl -X POST http://localhost:8080/proxy/posts-service/posts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "method": "GET",
+    "jq_query": "[.[] | {id, title}]"
+  }'
+```
+
+#### Filtering and Aggregation
+```bash
+curl -X POST http://localhost:8080/proxy/posts-service/posts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "method": "GET",
+    "jq_query": "{total: length, user_posts: [.[] | select(.userId == 1) | {id, title}]}"
+  }'
+```
+
+#### POST Request with Body
+```bash
+curl -X POST http://localhost:8080/proxy/posts-service/posts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "method": "POST",
+    "body": {
+      "title": "New Post",
+      "body": "Post content",
+      "userId": 1
+    },
+    "jq_query": "{id, title, created: true}"
+  }'
+```
+
+For more examples and detailed API documentation, see [API Documentation](docs/API.md).
 
 ## Testing
 
@@ -124,7 +199,46 @@ See [TESTING.md](TESTING.md) for detailed testing information.
 
 ## Documentation
 
-- [Testing Guide](TESTING.md)
-- [Configuration Reference](docs/configuration.md)
-- [API Documentation](docs/api.md)
-- [Development Guide](docs/development.md)
+- [API Documentation](docs/API.md) - Complete API reference with examples
+- [Configuration Reference](docs/CONFIGURATION.md) - Detailed configuration guide
+- [Testing Guide](docs/TESTING.md) - Testing strategies and examples
+- [Deployment Guide](docs/DEPLOYMENT.md) - Production deployment instructions
+- [Logging & Monitoring](docs/LOGGING.md) - Logging and metrics documentation
+
+## Troubleshooting
+
+### Common Issues
+
+**Service won't start:**
+- Check if the port is already in use: `lsof -i :8080` (Linux/Mac) or `netstat -ano | findstr :8080` (Windows)
+- Verify configuration file exists and is valid JSON
+- Check file permissions
+
+**Endpoint not found:**
+- Verify the endpoint name in your configuration matches the URL
+- Check that the configuration file is being loaded correctly
+- Review logs for configuration loading errors
+
+**Transformation errors:**
+- Test your jq query using [jqplay.org](https://jqplay.org/)
+- Check that the response from the target endpoint is valid JSON
+- Review error details in the response for specific jq syntax errors
+
+**Connection refused:**
+- Verify the target endpoint URL is correct and accessible
+- Check network connectivity to the target service
+- Ensure the target service is running
+
+For more detailed troubleshooting, enable debug logging:
+```bash
+./proxy -config configs/config.json -log-level debug
+```
+
+## Contributing
+
+Contributions are welcome! Please ensure:
+1. All tests pass: `make test`
+2. Code is properly formatted: `make fmt`
+3. Linting passes: `make lint`
+4. Documentation is updated for new features
+
