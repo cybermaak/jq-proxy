@@ -58,4 +58,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 # Run the binary
 ENTRYPOINT ["/app/proxy"]
-CMD ["-config", "/app/configs/docker.json"]
+#CMD ["-config", "/app/configs/docker.json"]

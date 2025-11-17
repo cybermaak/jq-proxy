@@ -97,6 +97,7 @@ make coverage              # Generate coverage report
 ```
 GET  /health               # Health check
 GET  /metrics              # Service metrics
+GET  /config               # Current configuration
 POST /proxy/{endpoint}/{path}  # Proxy request
 ```
 

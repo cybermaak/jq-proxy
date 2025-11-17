@@ -214,22 +214,75 @@ Environment variables can override server configuration settings. This is partic
 
 ### Available Environment Variables
 
+#### Server Configuration
+
 | Variable | Description | Type | Default |
 |----------|-------------|------|---------|
 | `PROXY_PORT` | Server port | Integer | 8080 |
 | `PROXY_READ_TIMEOUT` | Read timeout in seconds | Integer | 30 |
 | `PROXY_WRITE_TIMEOUT` | Write timeout in seconds | Integer | 30 |
 
-### Precedence
+#### Endpoint Configuration
 
-Environment variables take precedence over configuration file values for server settings. Endpoint configuration is always loaded from the JSON file.
+Endpoints can be configured using environment variables in two ways:
+
+**Method 1: Individual Endpoint Variables**
+
+| Variable Pattern | Description | Example |
+|-----------------|-------------|---------|
+| `PROXY_ENDPOINT_{KEY}_TARGET` | Target URL for endpoint (required) | `PROXY_ENDPOINT_USERS_TARGET=https://api.example.com` |
+| `PROXY_ENDPOINT_{KEY}_NAME` | Display name for endpoint (optional) | `PROXY_ENDPOINT_USERS_NAME=user-service` |
+
+**How it works:**
+- The `{KEY}` part is used as the endpoint identifier in the URL path
+- If `_NAME` is not provided, the name defaults to the key converted to lowercase with hyphens
+- The `{KEY}` is case-sensitive and used exactly as specified
+
+**Examples:**
+```bash
+# With explicit name
+PROXY_ENDPOINT_USERS_TARGET=https://api.example.com
+PROXY_ENDPOINT_USERS_NAME=user-service
+# → Key: "USERS", Name: "user-service", URL: /proxy/USERS/...
+
+# Without name (defaults to lowercase with hyphens)
+PROXY_ENDPOINT_MY_API_TARGET=https://api.example.com
+# → Key: "MY_API", Name: "my-api", URL: /proxy/MY_API/...
+```
+
+**Method 2: JSON Configuration**
+
+| Variable | Description | Format |
+|----------|-------------|--------|
+| `PROXY_ENDPOINTS_JSON` | All endpoints as JSON | JSON object |
 
 **Example:**
+```bash
+PROXY_ENDPOINTS_JSON='{"user-service":{"name":"user-service","target":"https://api.example.com"},"posts-service":{"name":"posts-service","target":"https://api2.example.com"}}'
+```
+
+**Note:** Individual endpoint variables override JSON configuration if both are present.
+
+### Precedence
+
+1. **With config file**: Environment variables override server settings from the file
+2. **Without config file**: All configuration comes from environment variables
+
+**Example with config file:**
 ```bash
 # Configuration file has port: 8080
 # Environment variable overrides it
 PROXY_PORT=9000 ./proxy -config configs/config.json
 # Service will listen on port 9000
+```
+
+**Example without config file:**
+```bash
+# No config file needed - everything from environment
+PROXY_PORT=8080 \
+PROXY_ENDPOINT_API_TARGET=https://api.example.com \
+./proxy
+# Service starts with env-only configuration
 ```
 
 ---
@@ -402,12 +455,79 @@ PROXY_WRITE_TIMEOUT=60 \
 
 ---
 
+### Environment-Only Configuration
+
+You can run the service without a configuration file by providing all settings via environment variables.
+
+```bash
+# Using individual endpoint variables
+PROXY_PORT=8080 \
+PROXY_READ_TIMEOUT=60 \
+PROXY_WRITE_TIMEOUT=60 \
+PROXY_ENDPOINT_USER_SERVICE_TARGET=https://users.example.com \
+PROXY_ENDPOINT_POSTS_SERVICE_TARGET=https://posts.example.com \
+./proxy -log-level info
+```
+
+```bash
+# Using JSON endpoints
+PROXY_PORT=8080 \
+PROXY_ENDPOINTS_JSON='{"api":{"name":"api","target":"https://api.example.com"}}' \
+./proxy -log-level info
+```
+
+**Benefits:**
+- No configuration file needed
+- Easy to configure in containerized environments
+- Simple to manage in orchestration platforms (Kubernetes, Docker Swarm)
+- Configuration as code in docker-compose files
+
+---
+
 ## Docker Configuration
 
-### Using Environment Variables
+### Option 1: Environment Variables Only (Recommended)
+
+No configuration file needed - everything configured via environment variables:
 
 ```yaml
 # docker-compose.yml
+version: '3.8'
+services:
+  jq-proxy:
+    image: jq-proxy-service
+    ports:
+      - "8080:8080"
+    environment:
+      # Server configuration
+      - PROXY_PORT=8080
+      - PROXY_READ_TIMEOUT=60
+      - PROXY_WRITE_TIMEOUT=60
+      
+      # Endpoint configuration
+      - PROXY_ENDPOINT_USER_SERVICE_TARGET=https://users.example.com
+      - PROXY_ENDPOINT_POSTS_SERVICE_TARGET=https://posts.example.com
+      - PROXY_ENDPOINT_API_TARGET=https://api.example.com
+    # No volumes needed!
+```
+
+### Option 2: JSON Endpoints in Environment
+
+```yaml
+version: '3.8'
+services:
+  jq-proxy:
+    image: jq-proxy-service
+    ports:
+      - "8080:8080"
+    environment:
+      - PROXY_PORT=8080
+      - PROXY_ENDPOINTS_JSON={"user-service":{"name":"user-service","target":"https://api.example.com"},"posts-service":{"name":"posts-service","target":"https://api2.example.com"}}
+```
+
+### Option 3: Config File with Environment Overrides
+
+```yaml
 version: '3.8'
 services:
   jq-proxy:
@@ -423,12 +543,9 @@ services:
     command: ["-config", "/app/configs/production.json", "-log-level", "info"]
 ```
 
----
-
-### Using Config File Only
+### Option 4: Config File Only
 
 ```yaml
-# docker-compose.yml
 version: '3.8'
 services:
   jq-proxy:
@@ -437,6 +554,7 @@ services:
       - "8080:8080"
     volumes:
       - ./configs/production.json:/app/configs/config.json:ro
+    command: ["-config", "/app/configs/config.json"]
 ```
 
 ---

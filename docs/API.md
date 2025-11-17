@@ -67,6 +67,45 @@ Get service metrics including request counts, error rates, and response times.
 
 ---
 
+### Configuration
+
+Get the current service configuration including all configured endpoints.
+
+**Endpoint:** `GET /config`
+
+**Response:**
+```json
+{
+  "server": {
+    "port": 8080,
+    "read_timeout": 30,
+    "write_timeout": 30
+  },
+  "endpoints": {
+    "user-service": {
+      "name": "user-service",
+      "target": "https://api.example.com/users"
+    },
+    "posts-service": {
+      "name": "posts-service",
+      "target": "https://api.example.com/posts"
+    }
+  }
+}
+```
+
+**Status Codes:**
+- `200 OK` - Configuration retrieved successfully
+- `500 Internal Server Error` - Configuration not available
+
+**Use Cases:**
+- Verify endpoint configuration
+- Debug routing issues
+- Monitor configuration changes
+- Validate deployment
+
+---
+
 ### Proxy Request
 
 Forward a request to a configured endpoint with optional jq transformation.

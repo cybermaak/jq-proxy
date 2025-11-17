@@ -218,6 +218,16 @@ func (s *Service) getAvailableEndpoints() []string {
 	return endpoints
 }
 
+// GetConfig returns the current configuration
+func (s *Service) GetConfig() *models.ProxyConfig {
+	config, err := s.configProvider.LoadConfig()
+	if err != nil {
+		s.logger.WithError(err).Error("Failed to load configuration")
+		return nil
+	}
+	return config
+}
+
 // Error types for different failure scenarios
 
 // EndpointNotFoundError represents an error when the requested endpoint is not found

@@ -30,6 +30,14 @@ func (m *MockProxyService) HandleRequest(ctx context.Context, endpointName strin
 	return args.Get(0).(*models.ProxyResponse), args.Error(1)
 }
 
+func (m *MockProxyService) GetConfig() *models.ProxyConfig {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil
+	}
+	return args.Get(0).(*models.ProxyConfig)
+}
+
 // Helper function to create a test logger
 func createTestLogger() *logging.Logger {
 	logger, _ := logging.NewLogger("error")

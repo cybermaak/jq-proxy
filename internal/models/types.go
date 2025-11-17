@@ -22,6 +22,7 @@ type ProxyService interface {
 	HandleRequest(ctx context.Context, endpointName string, path string,
 		queryParams url.Values, headers http.Header,
 		proxyReq *ProxyRequest) (*ProxyResponse, error)
+	GetConfig() *ProxyConfig
 }
 
 // ProxyConfig represents the complete service configuration

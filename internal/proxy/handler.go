@@ -39,6 +39,9 @@ func (h *Handler) SetupRoutes() *mux.Router {
 	// Metrics endpoint
 	router.HandleFunc("/metrics", h.metricsHandler).Methods("GET")
 
+	// Config endpoint
+	router.HandleFunc("/config", h.configHandler).Methods("GET")
+
 	// Main proxy endpoint - captures endpoint name and remaining path
 	router.HandleFunc("/proxy/{endpoint}/{path:.*}", h.handleProxyRequest).Methods("POST", "OPTIONS")
 	router.HandleFunc("/proxy/{endpoint}", h.handleProxyRequest).Methods("POST", "OPTIONS")
@@ -122,6 +125,36 @@ func (h *Handler) healthCheck(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) metricsHandler(w http.ResponseWriter, r *http.Request) {
 	metrics := h.logger.GetMetrics().GetMetrics()
 	h.writeJSONResponse(w, http.StatusOK, metrics)
+}
+
+// configHandler provides current configuration endpoint
+func (h *Handler) configHandler(w http.ResponseWriter, r *http.Request) {
+	// Get the service's config provider
+	config := h.proxyService.GetConfig()
+	if config == nil {
+		h.writeErrorResponse(w, http.StatusInternalServerError, "CONFIG_ERROR", "Configuration not available", nil)
+		return
+	}
+
+	// Create a safe response that doesn't expose sensitive information
+	response := map[string]interface{}{
+		"server": map[string]interface{}{
+			"port":          config.Server.Port,
+			"read_timeout":  config.Server.ReadTimeout,
+			"write_timeout": config.Server.WriteTimeout,
+		},
+		"endpoints": make(map[string]interface{}),
+	}
+
+	// Add endpoint information
+	for name, endpoint := range config.Endpoints {
+		response["endpoints"].(map[string]interface{})[name] = map[string]interface{}{
+			"name":   endpoint.Name,
+			"target": endpoint.Target,
+		}
+	}
+
+	h.writeJSONResponse(w, http.StatusOK, response)
 }
 
 // handleProxyError handles different types of proxy errors

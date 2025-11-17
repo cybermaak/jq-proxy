@@ -57,25 +57,49 @@ docker run -p 8080:8080 -v $(pwd)/configs:/app/configs jq-proxy-service
 
 ## Configuration
 
-The service supports configuration through JSON files and environment variables.
+The service supports flexible configuration through JSON files and/or environment variables.
 
-### JSON Configuration
+### Configuration Options
 
-See `configs/example.json` for the complete configuration format. The JSON file defines:
-- **Endpoints**: Target service mappings (required)
-- **Server**: Default server settings (can be overridden by environment variables)
+**Option 1: Environment Variables Only (No config file needed)**
+```bash
+PROXY_PORT=8080 \
+PROXY_ENDPOINT_USER_SERVICE_TARGET=https://api.example.com \
+PROXY_ENDPOINT_POSTS_SERVICE_TARGET=https://api2.example.com \
+./proxy
+```
+
+**Option 2: JSON Configuration File**
+```bash
+./proxy -config configs/production.json
+```
+
+**Option 3: JSON File + Environment Overrides**
+```bash
+PROXY_PORT=9000 ./proxy -config configs/production.json
+```
 
 ### Environment Variables
 
-Server configuration can be overridden using environment variables, making it Docker-friendly:
+#### Server Configuration
 
-| Environment Variable | Description | Default |
-|---------------------|-------------|---------|
+| Variable | Description | Default |
+|----------|-------------|---------|
 | `PROXY_PORT` | Port to listen on | 8080 |
 | `PROXY_READ_TIMEOUT` | Read timeout in seconds | 30 |
 | `PROXY_WRITE_TIMEOUT` | Write timeout in seconds | 30 |
 
-**Note**: Endpoints are always loaded from the JSON configuration file. Only server settings can be overridden with environment variables.
+#### Endpoint Configuration
+
+| Variable Pattern | Description | Example |
+|-----------------|-------------|---------|
+| `PROXY_ENDPOINT_{KEY}_TARGET` | Target URL (required) | `PROXY_ENDPOINT_USERS_TARGET=https://api.example.com` |
+| `PROXY_ENDPOINT_{KEY}_NAME` | Display name (optional) | `PROXY_ENDPOINT_USERS_NAME=user-service` |
+| `PROXY_ENDPOINTS_JSON` | All endpoints as JSON | See docs |
+
+**Note:** The `{KEY}` is used in the URL path (e.g., `/proxy/USERS/...`). If `_NAME` is not provided, it defaults to the key in lowercase with hyphens.
+
+See [Configuration Reference](docs/CONFIGURATION.md) for complete details.
 
 ### Docker Compose
 

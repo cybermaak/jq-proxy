@@ -13,6 +13,7 @@ import (
 	"jq-proxy-service/internal/client"
 	"jq-proxy-service/internal/config"
 	"jq-proxy-service/internal/logging"
+	"jq-proxy-service/internal/models"
 	"jq-proxy-service/internal/proxy"
 	"jq-proxy-service/internal/transform"
 
@@ -20,7 +21,7 @@ import (
 )
 
 func main() {
-	var configPath = flag.String("config", "configs/config.json", "Path to configuration file")
+	var configPath = flag.String("config", "", "Path to configuration file (optional, uses env vars if not provided)")
 	var port = flag.String("port", "", "Port to listen on (overrides config)")
 	var logLevel = flag.String("log-level", "info", "Log level (debug, info, warn, error)")
 	flag.Parse()
@@ -31,11 +32,20 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
 		os.Exit(1)
 	}
+	logger.WithField("config", *configPath).WithField("port", *port).WithField("log-level", *logLevel).Info("command line args")
 
-	logger.WithField("config_path", *configPath).Info("Starting JQ Proxy Service")
+	// Initialize configuration provider
+	var configProvider models.ConfigProvider
+	if *configPath != "" {
+		// Load from file with environment variable overrides
+		logger.WithField("config_path", *configPath).Info("Starting JQ Proxy Service with file configuration")
+		configProvider = config.NewEnvProvider(*configPath)
+	} else {
+		// Load entirely from environment variables
+		logger.Info("Starting JQ Proxy Service with environment variable configuration")
+		configProvider = config.NewFullEnvProvider()
+	}
 
-	// Initialize configuration provider with environment variable support
-	configProvider := config.NewEnvProvider(*configPath)
 	proxyConfig, err := configProvider.LoadConfig()
 	if err != nil {
 		logger.WithError(err).Fatal("Failed to load configuration")
