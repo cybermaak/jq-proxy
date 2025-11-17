@@ -86,7 +86,9 @@ func (suite *IntegrationTestSuite) mockServerHandler(w http.ResponseWriter, r *h
 	case "/posts":
 		suite.handlePostsEndpoint(w, r)
 	case "/error":
-		http.Error(w, `{"error": "Internal server error"}`, http.StatusInternalServerError)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(`{"error": "Internal server error"}`))
 	case "/timeout":
 		time.Sleep(2 * time.Second)
 		w.WriteHeader(http.StatusOK)
@@ -180,17 +182,13 @@ func (suite *IntegrationTestSuite) TestHealthEndpoint() {
 	assert.Equal(suite.T(), "jq-proxy-service", response["service"])
 }
 
-// TestJSONPathTransformation tests JSONPath-based transformations
-func (suite *IntegrationTestSuite) TestJSONPathTransformation() {
+// TestJQBasicTransformation tests basic jq-based transformations
+func (suite *IntegrationTestSuite) TestJQBasicTransformation() {
 	requestBody := map[string]interface{}{
-		"method": "GET",
-		"body":   nil,
-		"transformation": map[string]interface{}{
-			"user_count":      "$.total",
-			"user_names":      "$.data[*].name",
-			"first_user_id":   "$.data[0].id",
-			"first_user_name": "$.data[0].name",
-		},
+		"method":              "GET",
+		"body":                nil,
+		"transformation_mode": "jq",
+		"jq_query":            "{user_count: .total, user_names: [.data[].name], first_user_id: .data[0].id, first_user_name: .data[0].name}",
 	}
 
 	body, _ := json.Marshal(requestBody)
@@ -249,10 +247,8 @@ func (suite *IntegrationTestSuite) TestPOSTRequest() {
 			"body":   "This is a new post",
 			"userId": 1,
 		},
-		"transformation": map[string]interface{}{
-			"created_id":    "$.id",
-			"created_title": "$.title",
-		},
+		"transformation_mode": "jq",
+		"jq_query":            "{created_id: .id, created_title: .title}",
 	}
 
 	body, _ := json.Marshal(requestBody)
@@ -308,11 +304,10 @@ func (suite *IntegrationTestSuite) TestHeaderForwarding() {
 	proxyHandler := handler.SetupRoutes()
 
 	requestBody := map[string]interface{}{
-		"method": "GET",
-		"body":   nil,
-		"transformation": map[string]interface{}{
-			"result": "$.headers",
-		},
+		"method":              "GET",
+		"body":                nil,
+		"transformation_mode": "jq",
+		"jq_query":            "{result: .headers}",
 	}
 
 	body, _ := json.Marshal(requestBody)
@@ -356,8 +351,9 @@ func (suite *IntegrationTestSuite) TestErrorHandling() {
 			endpoint: "nonexistent",
 			path:     "/test",
 			requestBody: map[string]interface{}{
-				"method":         "GET",
-				"transformation": map[string]interface{}{"result": "$.data"},
+				"method":              "GET",
+				"transformation_mode": "jq",
+				"jq_query":            "{result: .data}",
 			},
 			expectedStatus: http.StatusNotFound,
 			expectedError:  "ENDPOINT_NOT_FOUND",
@@ -367,8 +363,9 @@ func (suite *IntegrationTestSuite) TestErrorHandling() {
 			endpoint: "test-api",
 			path:     "/users",
 			requestBody: map[string]interface{}{
-				"method":         "GET",
-				"transformation": map[string]interface{}{"result": "$.invalid["},
+				"method":              "GET",
+				"transformation_mode": "jq",
+				"jq_query":            ".invalid[",
 			},
 			expectedStatus: http.StatusUnprocessableEntity,
 			expectedError:  "TRANSFORMATION_ERROR",
@@ -390,8 +387,9 @@ func (suite *IntegrationTestSuite) TestErrorHandling() {
 			endpoint: "test-api",
 			path:     "/error",
 			requestBody: map[string]interface{}{
-				"method":         "GET",
-				"transformation": map[string]interface{}{"result": "$.error"},
+				"method":              "GET",
+				"transformation_mode": "jq",
+				"jq_query":            "{result: .error}",
 			},
 			expectedStatus: http.StatusInternalServerError,
 		},
@@ -441,14 +439,9 @@ func (suite *IntegrationTestSuite) TestComplexTransformationScenarios() {
 		expected map[string]interface{}
 	}{
 		{
-			name: "JSONPath complex nested transformation",
-			mode: "jsonpath",
-			query: map[string]interface{}{
-				"total":  "$.total",
-				"page":   "$.page",
-				"names":  "$.data[*].name",
-				"cities": "$.data[*].profile.city",
-			},
+			name:  "jq complex nested transformation",
+			mode:  "jq",
+			query: "{total: .total, page: .page, names: [.data[].name], cities: [.data[].profile.city]}",
 			expected: map[string]interface{}{
 				"total":  float64(2),
 				"page":   float64(1),
@@ -476,19 +469,11 @@ func (suite *IntegrationTestSuite) TestComplexTransformationScenarios() {
 		suite.T().Run(tt.name, func(t *testing.T) {
 			var requestBody map[string]interface{}
 
-			if tt.mode == "jq" {
-				requestBody = map[string]interface{}{
-					"method":              "GET",
-					"body":                nil,
-					"transformation_mode": "jq",
-					"jq_query":            tt.query,
-				}
-			} else {
-				requestBody = map[string]interface{}{
-					"method":         "GET",
-					"body":           nil,
-					"transformation": tt.query,
-				}
+			requestBody = map[string]interface{}{
+				"method":              "GET",
+				"body":                nil,
+				"transformation_mode": "jq",
+				"jq_query":            tt.query,
 			}
 
 			body, _ := json.Marshal(requestBody)

@@ -31,11 +31,10 @@ type Config struct {
 
 // TestRequest represents a proxy request
 type TestRequest struct {
-	Method             string         `json:"method"`
-	Body               any            `json:"body"`
-	Transformation     map[string]any `json:"transformation,omitempty"`
-	TransformationMode string         `json:"transformation_mode,omitempty"`
-	JQQuery            string         `json:"jq_query,omitempty"`
+	Method             string `json:"method"`
+	Body               any    `json:"body"`
+	TransformationMode string `json:"transformation_mode,omitempty"`
+	JQQuery            string `json:"jq_query,omitempty"`
 }
 
 func main() {
@@ -53,8 +52,7 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Commands:\n")
 		fmt.Fprintf(os.Stderr, "  health        Test health endpoint\n")
 		fmt.Fprintf(os.Stderr, "  simple        Simple GET request test\n")
-		fmt.Fprintf(os.Stderr, "  transform     Test with JSONPath transformation\n")
-		fmt.Fprintf(os.Stderr, "  jq-transform  Test with jq transformation\n")
+		fmt.Fprintf(os.Stderr, "  transform     Test with jq transformation\n")
 		fmt.Fprintf(os.Stderr, "  post          Test POST request\n")
 		fmt.Fprintf(os.Stderr, "  error         Test error handling\n")
 		fmt.Fprintf(os.Stderr, "  all           Run all tests\n\n")
@@ -88,8 +86,7 @@ func main() {
 		testSimple(client, config)
 	case "transform":
 		testTransform(client, config)
-	case "jq-transform":
-		testJQTransform(client, config)
+
 	case "post":
 		testPost(client, config)
 	case "error":
@@ -109,28 +106,15 @@ func testHealth(client *http.Client, config Config) {
 
 func testSimple(client *http.Client, config Config) {
 	req := TestRequest{
-		Method: "GET",
-		Body:   nil,
-		Transformation: map[string]any{
-			"result": "$",
-		},
+		Method:             "GET",
+		Body:               nil,
+		TransformationMode: "jq",
+		JQQuery:            "{result: .}",
 	}
 	makeProxyRequest(client, config, "/posts/1", req, "Simple GET request")
 }
 
 func testTransform(client *http.Client, config Config) {
-	req := TestRequest{
-		Method: "GET",
-		Body:   nil,
-		Transformation: map[string]any{
-			"posts": "$[*].{id: id, title: title}",
-			"count": "$.length",
-		},
-	}
-	makeProxyRequest(client, config, "/posts", req, "GET with JSONPath transformation")
-}
-
-func testJQTransform(client *http.Client, config Config) {
 	req := TestRequest{
 		Method:             "GET",
 		Body:               nil,
@@ -148,20 +132,18 @@ func testPost(client *http.Client, config Config) {
 			"body":   "This is a test post",
 			"userId": 1,
 		},
-		Transformation: map[string]any{
-			"created_post": "$.{id: id, title: title}",
-		},
+		TransformationMode: "jq",
+		JQQuery:            "{created_post: {id: .id, title: .title}}",
 	}
 	makeProxyRequest(client, config, "/posts", req, "POST request with body")
 }
 
 func testError(client *http.Client, config Config) {
 	req := TestRequest{
-		Method: "GET",
-		Body:   nil,
-		Transformation: map[string]any{
-			"result": "$",
-		},
+		Method:             "GET",
+		Body:               nil,
+		TransformationMode: "jq",
+		JQQuery:            "{result: .}",
 	}
 	url := fmt.Sprintf("%s/proxy/nonexistent-endpoint/test", config.BaseURL)
 	makeRequestWithBody(client, config, "POST", url, req, "Error handling (nonexistent endpoint)")
@@ -174,7 +156,7 @@ func testAll(client *http.Client, config Config) {
 	testHealth(client, config)
 	testSimple(client, config)
 	testTransform(client, config)
-	testJQTransform(client, config)
+
 	testPost(client, config)
 	testError(client, config)
 

@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"jq-proxy-service/internal/models"
+	"jq-proxy-service/internal/transform"
 	"jq-proxy-service/pkg/client"
 )
 
@@ -63,29 +64,15 @@ func (m *MockHTTPClient) ForwardRequest(ctx context.Context, method, baseURL, pa
 	return args.Get(0).(*client.Response), args.Error(1)
 }
 
-type MockTransformer struct {
-	mock.Mock
-}
-
-func (m *MockTransformer) Transform(data interface{}, transformation map[string]interface{}) (interface{}, error) {
-	args := m.Called(data, transformation)
-	return args.Get(0), args.Error(1)
-}
-
-func (m *MockTransformer) ValidateTransformation(transformation map[string]interface{}) error {
-	args := m.Called(transformation)
-	return args.Error(0)
-}
-
 func TestService_HandleRequest_Success(t *testing.T) {
 	// Setup mocks
 	mockConfig := &MockConfigProvider{}
 	mockClient := &MockHTTPClient{}
-	mockTransformer := &MockTransformer{}
+	transformer := transform.NewUnifiedTransformer()
 	logger := logrus.New()
 	logger.SetLevel(logrus.ErrorLevel) // Reduce log noise in tests
 
-	service := NewService(mockConfig, mockClient, mockTransformer, logger)
+	service := NewService(mockConfig, mockClient, transformer, logger)
 
 	// Test data
 	endpoint := &models.Endpoint{
@@ -94,18 +81,10 @@ func TestService_HandleRequest_Success(t *testing.T) {
 	}
 
 	proxyReq := &models.ProxyRequest{
-		Method: "GET",
-		Body:   nil,
-		Transformation: map[string]interface{}{
-			"result": "$.data",
-		},
-	}
-
-	responseData := map[string]interface{}{
-		"data": []interface{}{
-			map[string]interface{}{"id": float64(1), "name": "John"},
-			map[string]interface{}{"id": float64(2), "name": "Jane"},
-		},
+		Method:             "GET",
+		Body:               nil,
+		TransformationMode: models.TransformationModeJQ,
+		JQQuery:            "{result: .data}",
 	}
 
 	transformedData := map[string]interface{}{
@@ -123,9 +102,7 @@ func TestService_HandleRequest_Success(t *testing.T) {
 
 	// Setup expectations
 	mockConfig.On("GetEndpoint", "test-service").Return(endpoint, true)
-	mockTransformer.On("ValidateTransformation", proxyReq.Transformation).Return(nil)
 	mockClient.On("ForwardRequest", mock.Anything, "GET", "https://api.example.com", "/users", url.Values(nil), http.Header(nil), nil).Return(httpResponse, nil)
-	mockTransformer.On("Transform", responseData, proxyReq.Transformation).Return(transformedData, nil)
 
 	// Execute
 	ctx := context.Background()
@@ -140,25 +117,23 @@ func TestService_HandleRequest_Success(t *testing.T) {
 	// Verify all expectations were met
 	mockConfig.AssertExpectations(t)
 	mockClient.AssertExpectations(t)
-	mockTransformer.AssertExpectations(t)
 }
 
 func TestService_HandleRequest_EndpointNotFound(t *testing.T) {
 	// Setup mocks
 	mockConfig := &MockConfigProvider{}
 	mockClient := &MockHTTPClient{}
-	mockTransformer := &MockTransformer{}
+	transformer := transform.NewUnifiedTransformer()
 	logger := logrus.New()
 	logger.SetLevel(logrus.ErrorLevel)
 
-	service := NewService(mockConfig, mockClient, mockTransformer, logger)
+	service := NewService(mockConfig, mockClient, transformer, logger)
 
 	proxyReq := &models.ProxyRequest{
-		Method: "GET",
-		Body:   nil,
-		Transformation: map[string]interface{}{
-			"result": "$.data",
-		},
+		Method:             "GET",
+		Body:               nil,
+		TransformationMode: models.TransformationModeJQ,
+		JQQuery:            "{result: .data}",
 	}
 
 	config := &models.ProxyConfig{
@@ -193,11 +168,11 @@ func TestService_HandleRequest_InvalidTransformation(t *testing.T) {
 	// Setup mocks
 	mockConfig := &MockConfigProvider{}
 	mockClient := &MockHTTPClient{}
-	mockTransformer := &MockTransformer{}
+	transformer := transform.NewUnifiedTransformer()
 	logger := logrus.New()
 	logger.SetLevel(logrus.ErrorLevel)
 
-	service := NewService(mockConfig, mockClient, mockTransformer, logger)
+	service := NewService(mockConfig, mockClient, transformer, logger)
 
 	endpoint := &models.Endpoint{
 		Name:   "test-service",
@@ -205,16 +180,14 @@ func TestService_HandleRequest_InvalidTransformation(t *testing.T) {
 	}
 
 	proxyReq := &models.ProxyRequest{
-		Method: "GET",
-		Body:   nil,
-		Transformation: map[string]interface{}{
-			"result": "$.invalid[",
-		},
+		Method:             "GET",
+		Body:               nil,
+		TransformationMode: models.TransformationModeJQ,
+		JQQuery:            ".invalid[",
 	}
 
 	// Setup expectations
 	mockConfig.On("GetEndpoint", "test-service").Return(endpoint, true)
-	mockTransformer.On("ValidateTransformation", proxyReq.Transformation).Return(errors.New("invalid JSONPath expression"))
 
 	// Execute
 	ctx := context.Background()
@@ -231,18 +204,17 @@ func TestService_HandleRequest_InvalidTransformation(t *testing.T) {
 	assert.Equal(t, "TRANSFORMATION_ERROR", transformErr.ErrorCode())
 
 	mockConfig.AssertExpectations(t)
-	mockTransformer.AssertExpectations(t)
 }
 
 func TestService_HandleRequest_UpstreamError(t *testing.T) {
 	// Setup mocks
 	mockConfig := &MockConfigProvider{}
 	mockClient := &MockHTTPClient{}
-	mockTransformer := &MockTransformer{}
+	transformer := transform.NewUnifiedTransformer()
 	logger := logrus.New()
 	logger.SetLevel(logrus.ErrorLevel)
 
-	service := NewService(mockConfig, mockClient, mockTransformer, logger)
+	service := NewService(mockConfig, mockClient, transformer, logger)
 
 	endpoint := &models.Endpoint{
 		Name:   "test-service",
@@ -250,16 +222,14 @@ func TestService_HandleRequest_UpstreamError(t *testing.T) {
 	}
 
 	proxyReq := &models.ProxyRequest{
-		Method: "GET",
-		Body:   nil,
-		Transformation: map[string]interface{}{
-			"result": "$.data",
-		},
+		Method:             "GET",
+		Body:               nil,
+		TransformationMode: models.TransformationModeJQ,
+		JQQuery:            "{result: .data}",
 	}
 
 	// Setup expectations
 	mockConfig.On("GetEndpoint", "test-service").Return(endpoint, true)
-	mockTransformer.On("ValidateTransformation", proxyReq.Transformation).Return(nil)
 	mockClient.On("ForwardRequest", mock.Anything, "GET", "https://api.example.com", "/users", url.Values(nil), http.Header(nil), nil).Return((*client.Response)(nil), errors.New("connection refused"))
 
 	// Execute
@@ -277,7 +247,6 @@ func TestService_HandleRequest_UpstreamError(t *testing.T) {
 	assert.Equal(t, "UPSTREAM_ERROR", upstreamErr.ErrorCode())
 
 	mockConfig.AssertExpectations(t)
-	mockTransformer.AssertExpectations(t)
 	mockClient.AssertExpectations(t)
 }
 
@@ -285,11 +254,11 @@ func TestService_HandleRequest_TransformationFailure(t *testing.T) {
 	// Setup mocks
 	mockConfig := &MockConfigProvider{}
 	mockClient := &MockHTTPClient{}
-	mockTransformer := &MockTransformer{}
+	transformer := transform.NewUnifiedTransformer()
 	logger := logrus.New()
 	logger.SetLevel(logrus.ErrorLevel)
 
-	service := NewService(mockConfig, mockClient, mockTransformer, logger)
+	service := NewService(mockConfig, mockClient, transformer, logger)
 
 	endpoint := &models.Endpoint{
 		Name:   "test-service",
@@ -297,28 +266,14 @@ func TestService_HandleRequest_TransformationFailure(t *testing.T) {
 	}
 
 	proxyReq := &models.ProxyRequest{
-		Method: "GET",
-		Body:   nil,
-		Transformation: map[string]interface{}{
-			"result": "$.data",
-		},
+		Method:             "GET",
+		Body:               nil,
+		TransformationMode: models.TransformationModeJQ,
+		JQQuery:            ".invalid_syntax[",
 	}
 
-	responseData := map[string]interface{}{
-		"data": "some data",
-	}
-
-	httpResponse := &client.Response{
-		StatusCode: 200,
-		Headers:    http.Header{"Content-Type": []string{"application/json"}},
-		Body:       []byte(`{"data":"some data"}`),
-	}
-
-	// Setup expectations
+	// Setup expectations - validation happens before HTTP request
 	mockConfig.On("GetEndpoint", "test-service").Return(endpoint, true)
-	mockTransformer.On("ValidateTransformation", proxyReq.Transformation).Return(nil)
-	mockClient.On("ForwardRequest", mock.Anything, "GET", "https://api.example.com", "/users", url.Values(nil), http.Header(nil), nil).Return(httpResponse, nil)
-	mockTransformer.On("Transform", responseData, proxyReq.Transformation).Return(nil, errors.New("transformation failed"))
 
 	// Execute
 	ctx := context.Background()
@@ -330,23 +285,21 @@ func TestService_HandleRequest_TransformationFailure(t *testing.T) {
 
 	transformErr, ok := err.(*TransformationError)
 	require.True(t, ok)
-	assert.Contains(t, transformErr.Message, "Failed to transform response")
+	assert.Contains(t, transformErr.Message, "Invalid transformation")
 	assert.Equal(t, http.StatusUnprocessableEntity, transformErr.HTTPStatusCode())
 
 	mockConfig.AssertExpectations(t)
-	mockTransformer.AssertExpectations(t)
-	mockClient.AssertExpectations(t)
 }
 
 func TestService_HandleRequest_NonJSONResponse(t *testing.T) {
 	// Setup mocks
 	mockConfig := &MockConfigProvider{}
 	mockClient := &MockHTTPClient{}
-	mockTransformer := &MockTransformer{}
+	transformer := transform.NewUnifiedTransformer()
 	logger := logrus.New()
 	logger.SetLevel(logrus.ErrorLevel)
 
-	service := NewService(mockConfig, mockClient, mockTransformer, logger)
+	service := NewService(mockConfig, mockClient, transformer, logger)
 
 	endpoint := &models.Endpoint{
 		Name:   "test-service",
@@ -354,11 +307,10 @@ func TestService_HandleRequest_NonJSONResponse(t *testing.T) {
 	}
 
 	proxyReq := &models.ProxyRequest{
-		Method: "GET",
-		Body:   nil,
-		Transformation: map[string]interface{}{
-			"result": "$",
-		},
+		Method:             "GET",
+		Body:               nil,
+		TransformationMode: models.TransformationModeJQ,
+		JQQuery:            "{result: .}",
 	}
 
 	transformedData := map[string]interface{}{
@@ -373,9 +325,7 @@ func TestService_HandleRequest_NonJSONResponse(t *testing.T) {
 
 	// Setup expectations
 	mockConfig.On("GetEndpoint", "test-service").Return(endpoint, true)
-	mockTransformer.On("ValidateTransformation", proxyReq.Transformation).Return(nil)
 	mockClient.On("ForwardRequest", mock.Anything, "GET", "https://api.example.com", "/data", url.Values(nil), http.Header(nil), nil).Return(httpResponse, nil)
-	mockTransformer.On("Transform", "plain text response", proxyReq.Transformation).Return(transformedData, nil)
 
 	// Execute
 	ctx := context.Background()
@@ -389,18 +339,17 @@ func TestService_HandleRequest_NonJSONResponse(t *testing.T) {
 
 	mockConfig.AssertExpectations(t)
 	mockClient.AssertExpectations(t)
-	mockTransformer.AssertExpectations(t)
 }
 
 func TestService_HandleRequest_HTTPErrorStatus(t *testing.T) {
 	// Setup mocks
 	mockConfig := &MockConfigProvider{}
 	mockClient := &MockHTTPClient{}
-	mockTransformer := &MockTransformer{}
+	transformer := transform.NewUnifiedTransformer()
 	logger := logrus.New()
 	logger.SetLevel(logrus.ErrorLevel)
 
-	service := NewService(mockConfig, mockClient, mockTransformer, logger)
+	service := NewService(mockConfig, mockClient, transformer, logger)
 
 	endpoint := &models.Endpoint{
 		Name:   "test-service",
@@ -408,15 +357,10 @@ func TestService_HandleRequest_HTTPErrorStatus(t *testing.T) {
 	}
 
 	proxyReq := &models.ProxyRequest{
-		Method: "GET",
-		Body:   nil,
-		Transformation: map[string]interface{}{
-			"error": "$.message",
-		},
-	}
-
-	responseData := map[string]interface{}{
-		"message": "Not found",
+		Method:             "GET",
+		Body:               nil,
+		TransformationMode: models.TransformationModeJQ,
+		JQQuery:            "{error: .message}",
 	}
 
 	transformedData := map[string]interface{}{
@@ -431,9 +375,7 @@ func TestService_HandleRequest_HTTPErrorStatus(t *testing.T) {
 
 	// Setup expectations
 	mockConfig.On("GetEndpoint", "test-service").Return(endpoint, true)
-	mockTransformer.On("ValidateTransformation", proxyReq.Transformation).Return(nil)
 	mockClient.On("ForwardRequest", mock.Anything, "GET", "https://api.example.com", "/users/999", url.Values(nil), http.Header(nil), nil).Return(httpResponse, nil)
-	mockTransformer.On("Transform", responseData, proxyReq.Transformation).Return(transformedData, nil)
 
 	// Execute
 	ctx := context.Background()
@@ -447,18 +389,17 @@ func TestService_HandleRequest_HTTPErrorStatus(t *testing.T) {
 
 	mockConfig.AssertExpectations(t)
 	mockClient.AssertExpectations(t)
-	mockTransformer.AssertExpectations(t)
 }
 
 func TestService_HandleRequest_WithQueryParamsAndHeaders(t *testing.T) {
 	// Setup mocks
 	mockConfig := &MockConfigProvider{}
 	mockClient := &MockHTTPClient{}
-	mockTransformer := &MockTransformer{}
+	transformer := transform.NewUnifiedTransformer()
 	logger := logrus.New()
 	logger.SetLevel(logrus.ErrorLevel)
 
-	service := NewService(mockConfig, mockClient, mockTransformer, logger)
+	service := NewService(mockConfig, mockClient, transformer, logger)
 
 	endpoint := &models.Endpoint{
 		Name:   "test-service",
@@ -466,11 +407,10 @@ func TestService_HandleRequest_WithQueryParamsAndHeaders(t *testing.T) {
 	}
 
 	proxyReq := &models.ProxyRequest{
-		Method: "POST",
-		Body:   map[string]interface{}{"name": "John"},
-		Transformation: map[string]interface{}{
-			"id": "$.id",
-		},
+		Method:             "POST",
+		Body:               map[string]interface{}{"name": "John"},
+		TransformationMode: models.TransformationModeJQ,
+		JQQuery:            "{id: .id}",
 	}
 
 	queryParams := url.Values{
@@ -481,11 +421,6 @@ func TestService_HandleRequest_WithQueryParamsAndHeaders(t *testing.T) {
 	headers := http.Header{
 		"Authorization": []string{"Bearer token"},
 		"Content-Type":  []string{"application/json"},
-	}
-
-	responseData := map[string]interface{}{
-		"id":   float64(123),
-		"name": "John",
 	}
 
 	transformedData := map[string]interface{}{
@@ -500,9 +435,7 @@ func TestService_HandleRequest_WithQueryParamsAndHeaders(t *testing.T) {
 
 	// Setup expectations
 	mockConfig.On("GetEndpoint", "test-service").Return(endpoint, true)
-	mockTransformer.On("ValidateTransformation", proxyReq.Transformation).Return(nil)
 	mockClient.On("ForwardRequest", mock.Anything, "POST", "https://api.example.com", "/users", queryParams, headers, map[string]interface{}{"name": "John"}).Return(httpResponse, nil)
-	mockTransformer.On("Transform", responseData, proxyReq.Transformation).Return(transformedData, nil)
 
 	// Execute
 	ctx := context.Background()
@@ -516,5 +449,4 @@ func TestService_HandleRequest_WithQueryParamsAndHeaders(t *testing.T) {
 
 	mockConfig.AssertExpectations(t)
 	mockClient.AssertExpectations(t)
-	mockTransformer.AssertExpectations(t)
 }

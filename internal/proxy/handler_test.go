@@ -41,11 +41,10 @@ func TestHandler_HandleProxyRequest_Success(t *testing.T) {
 
 	// Test data
 	requestBody := map[string]interface{}{
-		"method": "GET",
-		"body":   nil,
-		"transformation": map[string]interface{}{
-			"users": "$.data[*].name",
-		},
+		"method":              "GET",
+		"body":                nil,
+		"transformation_mode": "jq",
+		"jq_query":            "{users: [.data[].name]}",
 	}
 
 	responseData := map[string]interface{}{
@@ -102,11 +101,10 @@ func TestHandler_HandleProxyRequest_EndpointNotFound(t *testing.T) {
 
 	// Test data
 	requestBody := map[string]interface{}{
-		"method": "GET",
-		"body":   nil,
-		"transformation": map[string]interface{}{
-			"result": "$.data",
-		},
+		"method":              "GET",
+		"body":                nil,
+		"transformation_mode": "jq",
+		"jq_query":            "{result: .data}",
 	}
 
 	endpointError := &EndpointNotFoundError{
@@ -229,17 +227,16 @@ func TestHandler_HandleProxyRequest_TransformationError(t *testing.T) {
 
 	// Test data
 	requestBody := map[string]interface{}{
-		"method": "GET",
-		"body":   nil,
-		"transformation": map[string]interface{}{
-			"result": "$.invalid[",
-		},
+		"method":              "GET",
+		"body":                nil,
+		"transformation_mode": "jq",
+		"jq_query":            ".invalid[",
 	}
 
 	transformationError := &TransformationError{
-		Message: "Invalid JSONPath expression",
+		Message: "Invalid jq expression",
 		Details: map[string]interface{}{
-			"expression": "$.invalid[",
+			"expression": ".invalid[",
 		},
 	}
 
@@ -269,7 +266,7 @@ func TestHandler_HandleProxyRequest_TransformationError(t *testing.T) {
 	err := json.Unmarshal(rr.Body.Bytes(), &errorResponse)
 	require.NoError(t, err)
 	assert.Equal(t, "TRANSFORMATION_ERROR", errorResponse.Error.Code)
-	assert.Contains(t, errorResponse.Error.Message, "Invalid JSONPath expression")
+	assert.Contains(t, errorResponse.Error.Message, "Invalid jq expression")
 
 	mockService.AssertExpectations(t)
 }
@@ -285,11 +282,10 @@ func TestHandler_HandleProxyRequest_UpstreamError(t *testing.T) {
 
 	// Test data
 	requestBody := map[string]interface{}{
-		"method": "GET",
-		"body":   nil,
-		"transformation": map[string]interface{}{
-			"result": "$.data",
-		},
+		"method":              "GET",
+		"body":                nil,
+		"transformation_mode": "jq",
+		"jq_query":            "{result: .data}",
 	}
 
 	upstreamError := &UpstreamError{
@@ -421,11 +417,10 @@ func TestHandler_PathExtraction(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			requestBody := map[string]interface{}{
-				"method": "GET",
-				"body":   nil,
-				"transformation": map[string]interface{}{
-					"result": "$.data",
-				},
+				"method":              "GET",
+				"body":                nil,
+				"transformation_mode": "jq",
+				"jq_query":            "{result: .data}",
 			}
 
 			mockService.On("HandleRequest",

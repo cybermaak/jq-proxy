@@ -17,17 +17,19 @@ func TestProxyRequest_Validate(t *testing.T) {
 		{
 			name: "valid request",
 			request: ProxyRequest{
-				Method:         "GET",
-				Body:           nil,
-				Transformation: map[string]interface{}{"result": "$.data"},
+				Method:             "GET",
+				Body:               nil,
+				TransformationMode: TransformationModeJQ,
+				JQQuery:            "{result: .data}",
 			},
 			wantErr: false,
 		},
 		{
 			name: "missing method",
 			request: ProxyRequest{
-				Body:           nil,
-				Transformation: map[string]interface{}{"result": "$.data"},
+				Body:               nil,
+				TransformationMode: TransformationModeJQ,
+				JQQuery:            "{result: .data}",
 			},
 			wantErr: true,
 			errMsg:  "method is required",
@@ -35,28 +37,30 @@ func TestProxyRequest_Validate(t *testing.T) {
 		{
 			name: "invalid method",
 			request: ProxyRequest{
-				Method:         "INVALID",
-				Body:           nil,
-				Transformation: map[string]interface{}{"result": "$.data"},
+				Method:             "INVALID",
+				Body:               nil,
+				TransformationMode: TransformationModeJQ,
+				JQQuery:            "{result: .data}",
 			},
 			wantErr: true,
 			errMsg:  "invalid HTTP method: INVALID",
 		},
 		{
-			name: "missing transformation",
+			name: "missing jq_query",
 			request: ProxyRequest{
 				Method: "GET",
 				Body:   nil,
 			},
 			wantErr: true,
-			errMsg:  "transformation is required",
+			errMsg:  "jq_query is required",
 		},
 		{
 			name: "case insensitive method",
 			request: ProxyRequest{
-				Method:         "post",
-				Body:           map[string]interface{}{"key": "value"},
-				Transformation: map[string]interface{}{"result": "$.data"},
+				Method:             "post",
+				Body:               map[string]interface{}{"key": "value"},
+				TransformationMode: TransformationModeJQ,
+				JQQuery:            "{result: .data}",
 			},
 			wantErr: false,
 		},
@@ -78,7 +82,7 @@ func TestProxyRequest_Validate(t *testing.T) {
 				TransformationMode: TransformationModeJQ,
 			},
 			wantErr: true,
-			errMsg:  "jq_query is required when transformation_mode is 'jq'",
+			errMsg:  "jq_query is required",
 		},
 		{
 			name: "invalid transformation mode",
@@ -86,10 +90,10 @@ func TestProxyRequest_Validate(t *testing.T) {
 				Method:             "GET",
 				Body:               nil,
 				TransformationMode: "invalid",
-				Transformation:     map[string]interface{}{"result": "$.data"},
+				JQQuery:            "{result: .data}",
 			},
 			wantErr: true,
-			errMsg:  "invalid transformation mode: invalid",
+			errMsg:  "invalid transformation mode: invalid. Must be 'jq'",
 		},
 	}
 
@@ -340,7 +344,8 @@ func TestParseProxyRequest(t *testing.T) {
 			data: `{
 				"method": "GET",
 				"body": null,
-				"transformation": {"result": "$.data"}
+				"transformation_mode": "jq",
+				"jq_query": "{result: .data}"
 			}`,
 			wantErr: false,
 		},
@@ -355,7 +360,8 @@ func TestParseProxyRequest(t *testing.T) {
 			data: `{
 				"method": "",
 				"body": null,
-				"transformation": {"result": "$.data"}
+				"transformation_mode": "jq",
+				"jq_query": "{result: .data}"
 			}`,
 			wantErr: true,
 			errMsg:  "validation failed",

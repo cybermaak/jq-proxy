@@ -292,11 +292,10 @@ func (suite *APITestSuite) makeProxyRequest(endpoint, path string, requestBody m
 // TestSimpleGETRequest tests simple GET request (equivalent to test_simple in shell script)
 func (suite *APITestSuite) TestSimpleGETRequest() {
 	requestBody := map[string]any{
-		"method": "GET",
-		"body":   nil,
-		"transformation": map[string]any{
-			"result": "$",
-		},
+		"method":              "GET",
+		"body":                nil,
+		"transformation_mode": "jq",
+		"jq_query":            "{result: .}",
 	}
 
 	resp, response, err := suite.makeProxyRequest("jsonplaceholder", "/posts/1", requestBody)
@@ -331,15 +330,13 @@ func (suite *APITestSuite) TestSimpleGETRequest() {
 	}
 }
 
-// TestJSONPathTransformation tests JSONPath transformation (equivalent to test_transform in shell script)
-func (suite *APITestSuite) TestJSONPathTransformation() {
+// TestJQTransformation tests jq transformation (equivalent to test_transform in shell script)
+func (suite *APITestSuite) TestJQTransformation() {
 	requestBody := map[string]any{
-		"method": "GET",
-		"body":   nil,
-		"transformation": map[string]any{
-			"post_ids":    "$[*].id",
-			"post_titles": "$[*].title",
-		},
+		"method":              "GET",
+		"body":                nil,
+		"transformation_mode": "jq",
+		"jq_query":            "{post_ids: [.[].id], post_titles: [.[].title]}",
 	}
 
 	resp, response, err := suite.makeProxyRequest("jsonplaceholder", "/posts", requestBody)
@@ -379,8 +376,8 @@ func (suite *APITestSuite) TestJSONPathTransformation() {
 	}
 }
 
-// TestJQTransformation tests jq transformation (equivalent to test_jq_transform in shell script)
-func (suite *APITestSuite) TestJQTransformation() {
+// TestJQAdvancedTransformation tests advanced jq transformation (equivalent to test_jq_transform in shell script)
+func (suite *APITestSuite) TestJQAdvancedTransformation() {
 	requestBody := map[string]any{
 		"method":              "GET",
 		"body":                nil,
@@ -429,10 +426,8 @@ func (suite *APITestSuite) TestPOSTRequest() {
 			"body":   "This is a test post",
 			"userId": 1,
 		},
-		"transformation": map[string]any{
-			"created_id":    "$.id",
-			"created_title": "$.title",
-		},
+		"transformation_mode": "jq",
+		"jq_query":            "{created_id: .id, created_title: .title}",
 	}
 
 	resp, response, err := suite.makeProxyRequest("jsonplaceholder", "/posts", requestBody)
@@ -453,11 +448,10 @@ func (suite *APITestSuite) TestPOSTRequest() {
 // TestErrorHandling tests error scenarios (equivalent to test_error in shell script)
 func (suite *APITestSuite) TestErrorHandling() {
 	requestBody := map[string]any{
-		"method": "GET",
-		"body":   nil,
-		"transformation": map[string]any{
-			"result": "$",
-		},
+		"method":              "GET",
+		"body":                nil,
+		"transformation_mode": "jq",
+		"jq_query":            "{result: .}",
 	}
 
 	resp, response, err := suite.makeProxyRequest("nonexistent-endpoint", "/test", requestBody)
@@ -489,8 +483,8 @@ func (suite *APITestSuite) TestAllScenarios() {
 	// Run all individual tests
 	suite.TestHealthEndpoint()
 	suite.TestSimpleGETRequest()
-	suite.TestJSONPathTransformation()
 	suite.TestJQTransformation()
+	suite.TestJQAdvancedTransformation()
 	suite.TestPOSTRequest()
 	suite.TestErrorHandling()
 
@@ -528,11 +522,10 @@ func (suite *APITestSuite) TestDifferentEndpoints() {
 	for _, tt := range tests {
 		suite.T().Run(tt.name, func(t *testing.T) {
 			requestBody := map[string]any{
-				"method": "GET",
-				"body":   nil,
-				"transformation": map[string]any{
-					"result": "$",
-				},
+				"method":              "GET",
+				"body":                nil,
+				"transformation_mode": "jq",
+				"jq_query":            "{result: .}",
 			}
 
 			body, _ := json.Marshal(requestBody)
@@ -552,14 +545,10 @@ func (suite *APITestSuite) TestVerboseMode() {
 	suite.T().Log("Testing with verbose validation...")
 
 	requestBody := map[string]any{
-		"method": "GET",
-		"body":   nil,
-		"transformation": map[string]any{
-			"full_response": "$",
-			"post_id":       "$.id",
-			"post_title":    "$.title",
-			"user_id":       "$.userId",
-		},
+		"method":              "GET",
+		"body":                nil,
+		"transformation_mode": "jq",
+		"jq_query":            "{full_response: ., post_id: .id, post_title: .title, user_id: .userId}",
 	}
 
 	body, _ := json.Marshal(requestBody)
@@ -603,12 +592,9 @@ func (suite *APITestSuite) TestComplexTransformationScenarios() {
 		description string
 	}{
 		{
-			name: "JSONPath array filtering",
-			mode: "jsonpath",
-			query: map[string]any{
-				"post_titles": "$[*].title",
-				"post_ids":    "$[*].id",
-			},
+			name:        "jq array filtering",
+			mode:        "jq",
+			query:       "{post_titles: [.[].title], post_ids: [.[].id]}",
 			path:        "/posts",
 			description: "Filter posts by user and extract titles",
 		},
@@ -633,19 +619,11 @@ func (suite *APITestSuite) TestComplexTransformationScenarios() {
 		suite.T().Run(tt.name, func(t *testing.T) {
 			var requestBody map[string]any
 
-			if tt.mode == "jq" {
-				requestBody = map[string]any{
-					"method":              "GET",
-					"body":                nil,
-					"transformation_mode": "jq",
-					"jq_query":            tt.query,
-				}
-			} else {
-				requestBody = map[string]any{
-					"method":         "GET",
-					"body":           nil,
-					"transformation": tt.query,
-				}
+			requestBody = map[string]any{
+				"method":              "GET",
+				"body":                nil,
+				"transformation_mode": "jq",
+				"jq_query":            tt.query,
 			}
 
 			body, _ := json.Marshal(requestBody)

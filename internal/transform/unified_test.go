@@ -9,36 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUnifiedTransformer_TransformRequest_JSONPath(t *testing.T) {
-	transformer := NewUnifiedTransformer()
-
-	sampleData := map[string]interface{}{
-		"users": []interface{}{
-			map[string]interface{}{"id": 1, "name": "John"},
-			map[string]interface{}{"id": 2, "name": "Jane"},
-		},
-		"total": 2,
-	}
-
-	req := &models.ProxyRequest{
-		Method:             "GET",
-		TransformationMode: models.TransformationModeJSONPath,
-		Transformation: map[string]interface{}{
-			"user_count": "$.total",
-			"user_names": "$.users[*].name",
-		},
-	}
-
-	expected := map[string]interface{}{
-		"user_count": 2,
-		"user_names": []interface{}{"John", "Jane"},
-	}
-
-	result, err := transformer.TransformRequest(sampleData, req)
-	require.NoError(t, err)
-	assert.Equal(t, expected, result)
-}
-
 func TestUnifiedTransformer_TransformRequest_JQ(t *testing.T) {
 	transformer := NewUnifiedTransformer()
 
@@ -74,11 +44,9 @@ func TestUnifiedTransformer_TransformRequest_DefaultMode(t *testing.T) {
 	}
 
 	req := &models.ProxyRequest{
-		Method: "GET",
-		// No transformation mode specified - should default to JSONPath
-		Transformation: map[string]interface{}{
-			"result": "$.name",
-		},
+		Method:             "GET",
+		TransformationMode: models.TransformationModeJQ,
+		JQQuery:            "{result: .name}",
 	}
 
 	expected := map[string]interface{}{
@@ -102,52 +70,6 @@ func TestUnifiedTransformer_TransformRequest_InvalidMode(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported transformation mode")
 	assert.Nil(t, result)
-}
-
-func TestUnifiedTransformer_ValidateTransformation_JSONPath(t *testing.T) {
-	transformer := NewUnifiedTransformer()
-
-	tests := []struct {
-		name        string
-		req         *models.ProxyRequest
-		expectError bool
-		errorMsg    string
-	}{
-		{
-			name: "valid JSONPath transformation",
-			req: &models.ProxyRequest{
-				TransformationMode: models.TransformationModeJSONPath,
-				Transformation: map[string]interface{}{
-					"result": "$.data",
-				},
-			},
-			expectError: false,
-		},
-		{
-			name: "invalid JSONPath transformation",
-			req: &models.ProxyRequest{
-				TransformationMode: models.TransformationModeJSONPath,
-				Transformation: map[string]interface{}{
-					"result": "$.invalid[",
-				},
-			},
-			expectError: true,
-			errorMsg:    "invalid JSONPath expression",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := transformer.ValidateTransformation(tt.req)
-
-			if tt.expectError {
-				assert.Error(t, err)
-				assert.Contains(t, err.Error(), tt.errorMsg)
-			} else {
-				assert.NoError(t, err)
-			}
-		})
-	}
 }
 
 func TestUnifiedTransformer_ValidateTransformation_JQ(t *testing.T) {
@@ -207,30 +129,24 @@ func TestUnifiedTransformer_ValidateTransformation_InvalidMode(t *testing.T) {
 func TestUnifiedTransformer_LegacyTransform(t *testing.T) {
 	transformer := NewUnifiedTransformer()
 
-	// Test that the legacy Transform method still works for JSONPath
+	// Test that the legacy Transform method still works with jq
 	sampleData := map[string]interface{}{
 		"name": "test",
 	}
 
-	transformation := map[string]interface{}{
-		"result": "$.name",
-	}
+	jqQuery := "{result: .name}"
 
 	expected := map[string]interface{}{
 		"result": "test",
 	}
 
-	result, err := transformer.Transform(sampleData, transformation)
+	result, err := transformer.Transform(sampleData, jqQuery)
 	require.NoError(t, err)
 	assert.Equal(t, expected, result)
 }
 
 func TestUnifiedTransformer_GetTransformers(t *testing.T) {
 	transformer := NewUnifiedTransformer()
-
-	jsonPathTransformer := transformer.GetJSONPathTransformer()
-	assert.NotNil(t, jsonPathTransformer)
-	assert.IsType(t, &JSONPathTransformer{}, jsonPathTransformer)
 
 	jqTransformer := transformer.GetJQTransformer()
 	assert.NotNil(t, jqTransformer)

@@ -189,12 +189,12 @@ func TestJQTransformer_ValidateQuery(t *testing.T) {
 func TestJQTransformer_Transform_Legacy(t *testing.T) {
 	transformer := NewJQTransformer()
 
-	// The legacy Transform method should return an error for JQ transformer
-	result, err := transformer.Transform(map[string]interface{}{}, map[string]interface{}{})
+	// The Transform method should work with jq queries
+	result, err := transformer.Transform(map[string]interface{}{"test": "value"}, "{result: .test}")
 
-	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "JQ transformer requires using TransformWithQuery method")
-	assert.Nil(t, result)
+	assert.NoError(t, err)
+	expected := map[string]interface{}{"result": "value"}
+	assert.Equal(t, expected, result)
 }
 
 func TestJQTransformer_EdgeCases(t *testing.T) {

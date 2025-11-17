@@ -58,7 +58,6 @@ func (s *Service) HandleRequest(ctx context.Context, endpointName string, path s
 			Message: fmt.Sprintf("Invalid transformation: %v", err),
 			Details: map[string]interface{}{
 				"transformation_mode": proxyReq.TransformationMode,
-				"transformation":      proxyReq.Transformation,
 				"jq_query":            proxyReq.JQQuery,
 			},
 		}
@@ -96,8 +95,13 @@ func (s *Service) HandleRequest(ctx context.Context, endpointName string, path s
 	if unifiedTransformer, ok := s.transformer.(*transform.UnifiedTransformer); ok {
 		transformedData, err = unifiedTransformer.TransformRequest(responseData, proxyReq)
 	} else {
-		// Fallback to legacy JSONPath transformation
-		transformedData, err = s.transformer.Transform(responseData, proxyReq.Transformation)
+		return nil, &TransformationError{
+			Message: "Invalid transformer type - only jq transformations are supported",
+			Details: map[string]interface{}{
+				"transformation_mode": proxyReq.TransformationMode,
+				"jq_query":            proxyReq.JQQuery,
+			},
+		}
 	}
 
 	if err != nil {
@@ -106,7 +110,6 @@ func (s *Service) HandleRequest(ctx context.Context, endpointName string, path s
 			Message: fmt.Sprintf("Failed to transform response: %v", err),
 			Details: map[string]interface{}{
 				"transformation_mode": proxyReq.TransformationMode,
-				"transformation":      proxyReq.Transformation,
 				"jq_query":            proxyReq.JQQuery,
 				"error":               err.Error(),
 			},
@@ -174,13 +177,7 @@ func (s *Service) validateTransformation(req *models.ProxyRequest) error {
 		return unifiedTransformer.ValidateTransformation(req)
 	}
 
-	// Fallback to legacy JSONPath validation
-	if validator, ok := s.transformer.(interface {
-		ValidateTransformation(map[string]interface{}) error
-	}); ok {
-		return validator.ValidateTransformation(req.Transformation)
-	}
-	return nil
+	return fmt.Errorf("invalid transformer type - only jq transformations are supported")
 }
 
 // getAvailableEndpoints returns a list of available endpoint names

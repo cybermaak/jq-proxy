@@ -1,11 +1,11 @@
 # JQ Proxy Service
 
-A configurable JSON REST API proxy service written in Go that accepts requests, transforms them according to configuration, forwards them to target endpoints, and applies response transformations using JSONPath.
+A configurable JSON REST API proxy service written in Go that accepts requests, transforms them according to configuration, forwards them to target endpoints, and applies response transformations using jq.
 
 ## Features
 
 - Configurable endpoint mappings
-- JSONPath and jq-based response transformation
+- jq-based response transformation
 - Header forwarding with filtering
 - Docker deployment support
 - Comprehensive error handling
@@ -89,20 +89,6 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed deployment instructions.
 
 ## API Usage
 
-### JSONPath Transformation (Default)
-```bash
-POST /proxy/{endpoint-name}/path/to/resource?query=params
-Content-Type: application/json
-
-{
-  "method": "GET",
-  "body": null,
-  "transformation": {
-    "result": "$.data[*].{id: id, name: name}"
-  }
-}
-```
-
 ### jq Transformation
 ```bash
 POST /proxy/{endpoint-name}/path/to/resource?query=params
@@ -111,7 +97,7 @@ Content-Type: application/json
 {
   "method": "GET",
   "body": null,
-  "transformation_mode": "jq",
+
   "jq_query": "{result: [.data[] | {id: .id, name: .name}]}"
 }
 ```

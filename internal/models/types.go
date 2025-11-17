@@ -25,7 +25,7 @@ type ProxyService interface {
 
 // ResponseTransformer defines the interface for response transformation
 type ResponseTransformer interface {
-	Transform(data interface{}, transformation map[string]interface{}) (interface{}, error)
+	Transform(data interface{}, jqQuery string) (interface{}, error)
 }
 
 // ProxyConfig represents the complete service configuration
@@ -51,17 +51,15 @@ type ServerConfig struct {
 type TransformationMode string
 
 const (
-	TransformationModeJSONPath TransformationMode = "jsonpath"
-	TransformationModeJQ       TransformationMode = "jq"
+	TransformationModeJQ TransformationMode = "jq"
 )
 
 // ProxyRequest represents the incoming request payload
 type ProxyRequest struct {
-	Method             string                 `json:"method"`
-	Body               interface{}            `json:"body"`
-	Transformation     map[string]interface{} `json:"transformation,omitempty"`
-	TransformationMode TransformationMode     `json:"transformation_mode,omitempty"`
-	JQQuery            string                 `json:"jq_query,omitempty"`
+	Method             string             `json:"method"`
+	Body               interface{}        `json:"body"`
+	TransformationMode TransformationMode `json:"transformation_mode,omitempty"`
+	JQQuery            string             `json:"jq_query,omitempty"`
 }
 
 // ProxyResponse represents the response returned to the client
@@ -104,23 +102,17 @@ func (pr *ProxyRequest) Validate() error {
 
 	// Set default transformation mode if not specified
 	if pr.TransformationMode == "" {
-		pr.TransformationMode = TransformationModeJSONPath
+		pr.TransformationMode = TransformationModeJQ
 	}
 
 	// Validate transformation mode
-	if pr.TransformationMode != TransformationModeJSONPath && pr.TransformationMode != TransformationModeJQ {
-		return fmt.Errorf("invalid transformation mode: %s. Must be 'jsonpath' or 'jq'", pr.TransformationMode)
+	if pr.TransformationMode != TransformationModeJQ {
+		return fmt.Errorf("invalid transformation mode: %s. Must be 'jq'", pr.TransformationMode)
 	}
 
-	// Validate transformation based on mode
-	if pr.TransformationMode == TransformationModeJQ {
-		if pr.JQQuery == "" {
-			return fmt.Errorf("jq_query is required when transformation_mode is 'jq'")
-		}
-	} else {
-		if pr.Transformation == nil {
-			return fmt.Errorf("transformation is required when transformation_mode is 'jsonpath'")
-		}
+	// Validate jq query is provided
+	if pr.JQQuery == "" {
+		return fmt.Errorf("jq_query is required")
 	}
 
 	return nil

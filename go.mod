@@ -5,13 +5,11 @@ go 1.23
 require (
 	github.com/sirupsen/logrus v1.9.3
 	github.com/stretchr/testify v1.10.0
-	github.com/theory/jsonpath v0.10.1
 )
 
 require (
 	github.com/itchyny/gojq v0.12.17
 	github.com/itchyny/timefmt-go v0.1.6 // indirect
-	github.com/kr/text v0.2.0 // indirect
 )
 
 require (

@@ -85,19 +85,16 @@ func setupBenchmark() *BenchmarkSuite {
 	return suite
 }
 
-// BenchmarkJSONPathTransformation benchmarks JSONPath transformations
-func BenchmarkJSONPathTransformation(b *testing.B) {
+// BenchmarkJQTransformation benchmarks jq transformations
+func BenchmarkJQTransformation(b *testing.B) {
 	suite := setupBenchmark()
 	defer suite.mockServer.Close()
 
 	requestBody := map[string]interface{}{
-		"method": "GET",
-		"body":   nil,
-		"transformation": map[string]interface{}{
-			"user_count": "$.total",
-			"user_names": "$.data[*].name",
-			"user_ages":  "$.data[*].profile.age",
-		},
+		"method":              "GET",
+		"body":                nil,
+		"transformation_mode": "jq",
+		"jq_query":            "{user_count: .total, user_names: [.data[].name], user_ages: [.data[].profile.age]}",
 	}
 
 	body, _ := json.Marshal(requestBody)
@@ -118,8 +115,8 @@ func BenchmarkJSONPathTransformation(b *testing.B) {
 	}
 }
 
-// BenchmarkJQTransformation benchmarks jq transformations
-func BenchmarkJQTransformation(b *testing.B) {
+// BenchmarkJQTransformationHTTP benchmarks jq transformations via HTTP
+func BenchmarkJQTransformationHTTP(b *testing.B) {
 	suite := setupBenchmark()
 	defer suite.mockServer.Close()
 
@@ -192,27 +189,6 @@ func BenchmarkTransformationOnly(b *testing.B) {
 		},
 		"total": 2,
 	}
-
-	b.Run("JSONPath", func(b *testing.B) {
-		req := &models.ProxyRequest{
-			Method:             "GET",
-			TransformationMode: models.TransformationModeJSONPath,
-			Transformation: map[string]interface{}{
-				"names": "$.data[*].name",
-				"count": "$.total",
-			},
-		}
-
-		b.ResetTimer()
-		b.ReportAllocs()
-
-		for i := 0; i < b.N; i++ {
-			_, err := transformer.TransformRequest(sampleData, req)
-			if err != nil {
-				b.Fatal(err)
-			}
-		}
-	})
 
 	b.Run("jq", func(b *testing.B) {
 		req := &models.ProxyRequest{

@@ -160,7 +160,7 @@ docker-run-port:
 
 # Create example request for testing
 example-request:
-	@echo "Example JSONPath proxy request:"
+	@echo "Example jq proxy request:"
 	@echo "curl -X POST http://localhost:8080/proxy/user-service/posts \\"
 	@echo "  -H 'Content-Type: application/json' \\"
 	@echo "  -d '{"

@@ -17,14 +17,12 @@ func NewJQTransformer() models.ResponseTransformer {
 }
 
 // Transform applies jq transformation to the input data
-func (jt *JQTransformer) Transform(data interface{}, transformation map[string]interface{}) (interface{}, error) {
-	// For JQ transformer, we expect a single query string
-	// This method is kept for interface compatibility but should use TransformWithQuery instead
-	return nil, fmt.Errorf("JQ transformer requires using TransformWithQuery method")
+func (jt *JQTransformer) Transform(data any, jqQuery string) (any, error) {
+	return jt.TransformWithQuery(data, jqQuery)
 }
 
 // TransformWithQuery applies a jq query to the input data
-func (jt *JQTransformer) TransformWithQuery(data interface{}, query string) (interface{}, error) {
+func (jt *JQTransformer) TransformWithQuery(data any, query string) (any, error) {
 	if query == "" {
 		return data, nil
 	}
