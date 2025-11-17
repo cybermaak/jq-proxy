@@ -96,8 +96,8 @@ func TestFullEnvProvider_GetEndpoint(t *testing.T) {
 	_, err := provider.LoadConfig()
 	require.NoError(t, err)
 
-	// The key is USER_SERVICE, not the name
-	endpoint, exists := provider.GetEndpoint("USER_SERVICE")
+	// When NAME is provided, it becomes the map key
+	endpoint, exists := provider.GetEndpoint("user-api")
 	assert.True(t, exists)
 	assert.NotNil(t, endpoint)
 	assert.Equal(t, "user-api", endpoint.Name)
@@ -118,10 +118,11 @@ func TestLoadEndpointsFromEnv_IndividualEndpoints(t *testing.T) {
 	endpoints, err := loadEndpointsFromEnv()
 	require.NoError(t, err)
 	assert.Len(t, endpoints, 2)
-	assert.Contains(t, endpoints, "USER_API")
-	assert.Contains(t, endpoints, "POST_API")
-	assert.Equal(t, "user-service", endpoints["USER_API"].Name)
-	assert.Equal(t, "post-service", endpoints["POST_API"].Name)
+	// When NAME is provided, it becomes the map key
+	assert.Contains(t, endpoints, "user-service")
+	assert.Contains(t, endpoints, "post-service")
+	assert.Equal(t, "user-service", endpoints["user-service"].Name)
+	assert.Equal(t, "post-service", endpoints["post-service"].Name)
 }
 
 func TestLoadEndpointsFromEnv_JSONFormat(t *testing.T) {
@@ -143,7 +144,7 @@ func TestLoadEndpointsFromEnv_JSONFormat(t *testing.T) {
 func TestLoadEndpointsFromEnv_MixedFormats(t *testing.T) {
 	clearEnv()
 	// Individual endpoints override JSON
-	jsonEndpoints := `{"API1": {"name": "api1", "target": "https://old.example.com"}}`
+	jsonEndpoints := `{"api1": {"name": "api1", "target": "https://old.example.com"}}`
 	os.Setenv("PROXY_ENDPOINTS_JSON", jsonEndpoints)
 	os.Setenv("PROXY_ENDPOINT_API1_TARGET", "https://new.example.com")
 	os.Setenv("PROXY_ENDPOINT_API1_NAME", "api-one")
@@ -151,23 +152,42 @@ func TestLoadEndpointsFromEnv_MixedFormats(t *testing.T) {
 
 	endpoints, err := loadEndpointsFromEnv()
 	require.NoError(t, err)
-	assert.Len(t, endpoints, 1)
-	assert.Equal(t, "https://new.example.com", endpoints["API1"].Target)
-	assert.Equal(t, "api-one", endpoints["API1"].Name)
+	assert.Len(t, endpoints, 2)              // JSON has "api1", env has "api-one"
+	assert.Contains(t, endpoints, "api-one") // NAME becomes the key
+	assert.Equal(t, "https://new.example.com", endpoints["api-one"].Target)
+	assert.Equal(t, "api-one", endpoints["api-one"].Name)
 }
 
 func TestLoadEndpointsFromEnv_NameDefaultsToKey(t *testing.T) {
 	clearEnv()
-	// If NAME is not provided, it should default to the key (converted to lowercase with hyphens)
+	// If NAME is not provided, the variable key is used as map key, and name defaults to lowercase with hyphens
 	os.Setenv("PROXY_ENDPOINT_MY_API_TARGET", "https://api.example.com")
 	defer clearEnv()
 
 	endpoints, err := loadEndpointsFromEnv()
 	require.NoError(t, err)
 	assert.Len(t, endpoints, 1)
+	// Without NAME, the variable key (MY_API) is used as the map key
 	assert.Contains(t, endpoints, "MY_API")
 	assert.Equal(t, "my-api", endpoints["MY_API"].Name)
 	assert.Equal(t, "https://api.example.com", endpoints["MY_API"].Target)
+}
+
+func TestLoadEndpointsFromEnv_NameBecomesMapKey(t *testing.T) {
+	clearEnv()
+	// When NAME is provided, it should be used as the map key
+	os.Setenv("PROXY_ENDPOINT_USERS_API_TARGET", "https://api.example.com")
+	os.Setenv("PROXY_ENDPOINT_USERS_API_NAME", "user-service")
+	defer clearEnv()
+
+	endpoints, err := loadEndpointsFromEnv()
+	require.NoError(t, err)
+	assert.Len(t, endpoints, 1)
+	// NAME becomes the map key
+	assert.Contains(t, endpoints, "user-service")
+	assert.NotContains(t, endpoints, "USERS_API")
+	assert.Equal(t, "user-service", endpoints["user-service"].Name)
+	assert.Equal(t, "https://api.example.com", endpoints["user-service"].Target)
 }
 
 func clearEnv() {

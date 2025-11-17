@@ -114,40 +114,43 @@ func loadEndpointsFromEnv() (map[string]*models.Endpoint, error) {
 		endpoints = jsonEndpoints
 	}
 
-	// Collect all endpoint keys from TARGET variables
-	endpointKeys := make(map[string]bool)
+	// Load individual endpoints in a single loop (these override JSON if both are present)
 	for _, env := range os.Environ() {
-		if strings.HasPrefix(env, "PROXY_ENDPOINT_") && strings.Contains(env, "_TARGET=") {
-			parts := strings.SplitN(env, "=", 2)
-			if len(parts) != 2 {
-				continue
-			}
-
-			// Extract key from PROXY_ENDPOINT_{KEY}_TARGET
-			varName := parts[0]
-			key := strings.TrimPrefix(varName, "PROXY_ENDPOINT_")
-			key = strings.TrimSuffix(key, "_TARGET")
-
-			if key != "" {
-				endpointKeys[key] = true
-			}
+		if !strings.HasPrefix(env, "PROXY_ENDPOINT_") || !strings.Contains(env, "_TARGET=") {
+			continue
 		}
-	}
 
-	// Load individual endpoints (these override JSON if both are present)
-	for key := range endpointKeys {
-		targetVar := fmt.Sprintf("PROXY_ENDPOINT_%s_TARGET", key)
-		nameVar := fmt.Sprintf("PROXY_ENDPOINT_%s_NAME", key)
+		parts := strings.SplitN(env, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
 
-		target := os.Getenv(targetVar)
+		// Extract key from PROXY_ENDPOINT_{KEY}_TARGET
+		varName := parts[0]
+		key := strings.TrimPrefix(varName, "PROXY_ENDPOINT_")
+		key = strings.TrimSuffix(key, "_TARGET")
+		if key == "" {
+			continue
+		}
+
+		target := parts[1]
 		if target == "" {
 			continue
 		}
 
-		// Get the name - if not provided, derive from key
+		// Get the name from PROXY_ENDPOINT_{KEY}_NAME
+		nameVar := fmt.Sprintf("PROXY_ENDPOINT_%s_NAME", key)
 		name := os.Getenv(nameVar)
-		if name == "" {
-			// Convert key to endpoint name format (lowercase with hyphens)
+
+		// Determine the map key and endpoint name
+		var mapKey string
+		if name != "" {
+			// If name is provided, use it as both the map key and endpoint name
+			mapKey = name
+		} else {
+			// If name is not provided, use the variable key as map key
+			// and convert it to lowercase with hyphens for the endpoint name
+			mapKey = key
 			name = strings.ToLower(key)
 			name = strings.ReplaceAll(name, "_", "-")
 		}
@@ -159,11 +162,10 @@ func loadEndpointsFromEnv() (map[string]*models.Endpoint, error) {
 
 		// Validate the endpoint
 		if err := endpoint.Validate(); err != nil {
-			return nil, fmt.Errorf("invalid endpoint %s: %w", key, err)
+			return nil, fmt.Errorf("invalid endpoint %s: %w", mapKey, err)
 		}
 
-		// Use the key as the map key
-		endpoints[key] = endpoint
+		endpoints[mapKey] = endpoint
 	}
 
 	if len(endpoints) == 0 {
