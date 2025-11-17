@@ -18,12 +18,12 @@ import (
 type Service struct {
 	configProvider models.ConfigProvider
 	httpClient     client.HTTPClient
-	transformer    models.ResponseTransformer
+	transformer    *transform.UnifiedTransformer
 	logger         *logrus.Logger
 }
 
 // NewService creates a new proxy service instance
-func NewService(configProvider models.ConfigProvider, httpClient client.HTTPClient, transformer models.ResponseTransformer, logger *logrus.Logger) models.ProxyService {
+func NewService(configProvider models.ConfigProvider, httpClient client.HTTPClient, transformer *transform.UnifiedTransformer, logger *logrus.Logger) models.ProxyService {
 	return &Service{
 		configProvider: configProvider,
 		httpClient:     httpClient,
@@ -91,18 +91,7 @@ func (s *Service) HandleRequest(ctx context.Context, endpointName string, path s
 	}
 
 	// Apply transformation using the unified transformer
-	var transformedData interface{}
-	if unifiedTransformer, ok := s.transformer.(*transform.UnifiedTransformer); ok {
-		transformedData, err = unifiedTransformer.TransformRequest(responseData, proxyReq)
-	} else {
-		return nil, &TransformationError{
-			Message: "Invalid transformer type - only jq transformations are supported",
-			Details: map[string]interface{}{
-				"transformation_mode": proxyReq.TransformationMode,
-				"jq_query":            proxyReq.JQQuery,
-			},
-		}
-	}
+	transformedData, err := s.transformer.TransformRequest(responseData, proxyReq)
 
 	if err != nil {
 		s.logger.WithError(err).Error("Failed to transform response")
@@ -172,12 +161,7 @@ func (s *Service) forwardRequest(ctx context.Context, endpoint *models.Endpoint,
 
 // validateTransformation validates the transformation rules
 func (s *Service) validateTransformation(req *models.ProxyRequest) error {
-	// Use the unified transformer's validation if available
-	if unifiedTransformer, ok := s.transformer.(*transform.UnifiedTransformer); ok {
-		return unifiedTransformer.ValidateTransformation(req)
-	}
-
-	return fmt.Errorf("invalid transformer type - only jq transformations are supported")
+	return s.transformer.ValidateTransformation(req)
 }
 
 // getAvailableEndpoints returns a list of available endpoint names

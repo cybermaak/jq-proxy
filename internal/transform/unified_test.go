@@ -126,25 +126,6 @@ func TestUnifiedTransformer_ValidateTransformation_InvalidMode(t *testing.T) {
 	assert.Contains(t, err.Error(), "unsupported transformation mode")
 }
 
-func TestUnifiedTransformer_LegacyTransform(t *testing.T) {
-	transformer := NewUnifiedTransformer()
-
-	// Test that the legacy Transform method still works with jq
-	sampleData := map[string]interface{}{
-		"name": "test",
-	}
-
-	jqQuery := "{result: .name}"
-
-	expected := map[string]interface{}{
-		"result": "test",
-	}
-
-	result, err := transformer.Transform(sampleData, jqQuery)
-	require.NoError(t, err)
-	assert.Equal(t, expected, result)
-}
-
 func TestUnifiedTransformer_GetTransformers(t *testing.T) {
 	transformer := NewUnifiedTransformer()
 

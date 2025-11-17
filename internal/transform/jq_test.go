@@ -8,7 +8,7 @@ import (
 )
 
 func TestJQTransformer_TransformWithQuery(t *testing.T) {
-	transformer := NewJQTransformer().(*JQTransformer)
+	transformer := NewJQTransformer()
 
 	// Sample data for testing
 	sampleData := map[string]interface{}{
@@ -138,7 +138,7 @@ func TestJQTransformer_TransformWithQuery(t *testing.T) {
 }
 
 func TestJQTransformer_ValidateQuery(t *testing.T) {
-	transformer := NewJQTransformer().(*JQTransformer)
+	transformer := NewJQTransformer()
 
 	tests := []struct {
 		name        string
@@ -189,8 +189,8 @@ func TestJQTransformer_ValidateQuery(t *testing.T) {
 func TestJQTransformer_Transform_Legacy(t *testing.T) {
 	transformer := NewJQTransformer()
 
-	// The Transform method should work with jq queries
-	result, err := transformer.Transform(map[string]interface{}{"test": "value"}, "{result: .test}")
+	// The TransformWithQuery method should work with jq queries
+	result, err := transformer.TransformWithQuery(map[string]interface{}{"test": "value"}, "{result: .test}")
 
 	assert.NoError(t, err)
 	expected := map[string]interface{}{"result": "value"}
@@ -198,7 +198,7 @@ func TestJQTransformer_Transform_Legacy(t *testing.T) {
 }
 
 func TestJQTransformer_EdgeCases(t *testing.T) {
-	transformer := NewJQTransformer().(*JQTransformer)
+	transformer := NewJQTransformer()
 
 	tests := []struct {
 		name     string

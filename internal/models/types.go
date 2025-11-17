@@ -23,11 +23,6 @@ type ProxyService interface {
 		proxyReq *ProxyRequest) (*ProxyResponse, error)
 }
 
-// ResponseTransformer defines the interface for response transformation
-type ResponseTransformer interface {
-	Transform(data interface{}, jqQuery string) (interface{}, error)
-}
-
 // ProxyConfig represents the complete service configuration
 type ProxyConfig struct {
 	Endpoints map[string]*Endpoint `json:"endpoints"`

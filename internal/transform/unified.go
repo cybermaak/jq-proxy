@@ -14,13 +14,8 @@ type UnifiedTransformer struct {
 // NewUnifiedTransformer creates a new unified transformer
 func NewUnifiedTransformer() *UnifiedTransformer {
 	return &UnifiedTransformer{
-		jqTransformer: &JQTransformer{},
+		jqTransformer: NewJQTransformer(),
 	}
-}
-
-// Transform applies jq transformation (legacy method for backward compatibility)
-func (ut *UnifiedTransformer) Transform(data interface{}, jqQuery string) (interface{}, error) {
-	return ut.jqTransformer.TransformWithQuery(data, jqQuery)
 }
 
 // TransformRequest applies transformation based on the proxy request configuration

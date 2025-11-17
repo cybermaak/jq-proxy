@@ -16,8 +16,11 @@ A configurable JSON REST API proxy service written in Go that accepts requests, 
 ### Local Development
 
 ```bash
-# Run the service
+# Run the service with auto-reload
 make dev
+
+# Run with custom configuration
+make dev CONFIG=configs/production.json PORT=9000 LOG_LEVEL=info
 
 # Run tests
 make test

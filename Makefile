@@ -34,19 +34,26 @@ test-quiet:
 	go test -race -coverprofile=coverage.out ./...
 
 # Run in development mode with auto-reload
+# Usage: make dev [CONFIG=path] [PORT=8080] [LOG_LEVEL=debug]
 dev:
 	@echo "Starting development server..."
 	@if command -v air > /dev/null 2>&1; then \
 		air -c .air.toml; \
 	else \
 		echo "Air not installed. Running without auto-reload..."; \
-		go run cmd/proxy/main.go -config configs/example.json -log-level debug; \
+		$(MAKE) dev-simple; \
 	fi
 
 # Run in development mode without auto-reload
+# Usage: make dev-simple [CONFIG=path] [PORT=8080] [LOG_LEVEL=debug]
 dev-simple:
 	@echo "Starting development server (simple mode)..."
-	go run cmd/proxy/main.go -config configs/example.json -log-level debug
+	@CMD="go run cmd/proxy/main.go"; \
+	CMD="$$CMD -config $${CONFIG:-configs/example.json}"; \
+	CMD="$$CMD -log-level $${LOG_LEVEL:-debug}"; \
+	if [ -n "$$PORT" ]; then CMD="$$CMD -port $$PORT"; fi; \
+	echo "Running: $$CMD"; \
+	eval $$CMD
 
 # Clean build artifacts
 clean:
@@ -192,7 +199,9 @@ help:
 	@echo "  test-api-live  - Run API tests against live development server"
 	@echo "  test-quiet     - Run tests without verbose output"
 	@echo "  dev            - Run in development mode with auto-reload"
+	@echo "                   Usage: make dev [CONFIG=path] [PORT=8080] [LOG_LEVEL=debug]"
 	@echo "  dev-simple     - Run in development mode without auto-reload"
+	@echo "                   Usage: make dev-simple [CONFIG=path] [PORT=8080] [LOG_LEVEL=debug]"
 	@echo "  clean          - Clean build artifacts"
 	@echo "  lint           - Run linting and formatting"
 	@echo "  deps           - Install dependencies"

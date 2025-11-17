@@ -3,22 +3,15 @@ package transform
 import (
 	"fmt"
 
-	"jq-proxy-service/internal/models"
-
 	"github.com/itchyny/gojq"
 )
 
-// JQTransformer implements ResponseTransformer using jq syntax
+// JQTransformer implements jq-based transformations
 type JQTransformer struct{}
 
 // NewJQTransformer creates a new jq transformer
-func NewJQTransformer() models.ResponseTransformer {
+func NewJQTransformer() *JQTransformer {
 	return &JQTransformer{}
-}
-
-// Transform applies jq transformation to the input data
-func (jt *JQTransformer) Transform(data any, jqQuery string) (any, error) {
-	return jt.TransformWithQuery(data, jqQuery)
 }
 
 // TransformWithQuery applies a jq query to the input data
@@ -77,11 +70,4 @@ func (jt *JQTransformer) ValidateQuery(query string) error {
 	}
 
 	return nil
-}
-
-// JQTransformerInterface extends ResponseTransformer with jq-specific methods
-type JQTransformerInterface interface {
-	models.ResponseTransformer
-	TransformWithQuery(data interface{}, query string) (interface{}, error)
-	ValidateQuery(query string) error
 }
