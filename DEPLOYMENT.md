@@ -93,30 +93,12 @@ docker compose -f docker-compose.prod.yml down
 
 ### 4. Custom Environment Variables
 
-You can override configuration using environment files:
+You can override configuration using environment variables directly in docker-compose:
 
 ```bash
-# Copy and customize environment file
-cp .env.production .env.local
-
-# Edit .env.local with your settings
-# Then use it with docker-compose
-docker compose -f docker-compose.prod.yml --env-file .env.local up -d
-```
-
-### 5. Kubernetes Deployment
-
-Use the provided Kubernetes manifests:
-
-```bash
-# Apply Kubernetes resources
-kubectl apply -f k8s/
-
-# Check deployment status
-kubectl get pods -l app=jq-proxy-service
-
-# View logs
-kubectl logs -l app=jq-proxy-service -f
+# Edit docker-compose.prod.yml to add your environment variables
+# Or pass them via command line
+PROXY_PORT=8088 docker compose -f docker-compose.prod.yml up -d
 ```
 
 ## Configuration Priority
@@ -130,7 +112,7 @@ The service loads configuration in this order (later overrides earlier):
 ## Production Checklist
 
 - [ ] Update `configs/production.json` with correct endpoint URLs
-- [ ] Set appropriate environment variables in `.env.production`
+- [ ] Set appropriate environment variables in `docker-compose.prod.yml`
 - [ ] Configure resource limits in `docker-compose.prod.yml`
 - [ ] Set up monitoring and logging
 - [ ] Configure health checks

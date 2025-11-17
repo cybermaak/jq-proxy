@@ -58,19 +58,19 @@ Server configuration can be overridden using environment variables, making it Do
 
 **Note**: Endpoints are always loaded from the JSON configuration file. Only server settings can be overridden with environment variables.
 
-### Docker Compose Example
+### Docker Compose
 
-```yaml
-services:
-  jq-proxy:
-    image: jq-proxy-service
-    environment:
-      - PROXY_PORT=8088
-      - PROXY_READ_TIMEOUT=60
-      - PROXY_WRITE_TIMEOUT=45
-    volumes:
-      - ./configs:/app/configs:ro
-    command: ["-config", "/app/configs/production.json"]
+The project includes two Docker Compose configurations:
+
+- `docker-compose.dev.yml` - Development environment with hot-reload
+- `docker-compose.prod.yml` - Production environment
+
+```bash
+# Development
+docker compose -f docker-compose.dev.yml up -d
+
+# Production
+docker compose -f docker-compose.prod.yml up -d
 ```
 
 ### Production Deployment

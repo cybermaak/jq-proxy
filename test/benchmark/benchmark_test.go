@@ -10,10 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"jq-proxy-service/internal/client"
 	"jq-proxy-service/internal/models"
 	"jq-proxy-service/internal/proxy"
 	"jq-proxy-service/internal/transform"
-	"jq-proxy-service/pkg/client"
 
 	"github.com/sirupsen/logrus"
 )

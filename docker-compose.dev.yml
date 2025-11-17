@@ -32,7 +32,7 @@ services:
     ports:
       - "3001:80"
     volumes:
-      - ./docker/mock-data:/usr/share/nginx/html:ro
+      - ./test/mock-data:/usr/share/nginx/html:ro
     networks:
       - proxy-network
 

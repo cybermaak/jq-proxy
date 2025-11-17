@@ -16,10 +16,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
+	"jq-proxy-service/internal/client"
 	"jq-proxy-service/internal/models"
 	"jq-proxy-service/internal/proxy"
 	"jq-proxy-service/internal/transform"
-	"jq-proxy-service/pkg/client"
 )
 
 // APITestSuite contains comprehensive API tests that replace the shell-based test-api.sh script

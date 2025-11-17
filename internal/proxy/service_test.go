@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"jq-proxy-service/internal/client"
 	"jq-proxy-service/internal/models"
 	"jq-proxy-service/internal/transform"
-	"jq-proxy-service/pkg/client"
 )
 
 // Mock implementations for testing
