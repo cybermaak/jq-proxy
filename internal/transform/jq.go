@@ -1,3 +1,4 @@
+// Package transform provides response transformation capabilities using jq queries.
 package transform
 
 import (
@@ -48,11 +49,12 @@ func (jt *JQTransformer) TransformWithQuery(data any, query string) (any, error)
 	}
 
 	// Return single result if only one, otherwise return array
-	if len(results) == 0 {
+	switch {
+	case len(results) == 0:
 		return nil, nil
-	} else if len(results) == 1 {
+	case len(results) == 1:
 		return results[0], nil
-	} else {
+	default:
 		return results, nil
 	}
 }

@@ -9,12 +9,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"jq-proxy-service/internal/client"
+	"jq-proxy-service/internal/logging"
 	"jq-proxy-service/internal/models"
 	"jq-proxy-service/internal/proxy"
 	"jq-proxy-service/internal/transform"
@@ -60,8 +60,7 @@ func (suite *IntegrationTestSuite) SetupSuite() {
 	transformer := transform.NewUnifiedTransformer()
 
 	// Create logger for tests
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel) // Reduce log noise in tests
+	logger, _ := logging.NewLogger("error")
 
 	proxyService := proxy.NewService(configProvider, httpClient, transformer, logger)
 	handler := proxy.NewHandler(proxyService, logger)
@@ -296,8 +295,7 @@ func (suite *IntegrationTestSuite) TestHeaderForwarding() {
 	httpClient := client.NewClient(30 * time.Second)
 	transformer := transform.NewUnifiedTransformer()
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger, _ := logging.NewLogger("error")
 
 	proxyService := proxy.NewService(configProvider, httpClient, transformer, logger)
 	handler := proxy.NewHandler(proxyService, logger)

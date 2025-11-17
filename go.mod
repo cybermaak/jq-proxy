@@ -7,6 +7,8 @@ require (
 	github.com/stretchr/testify v1.10.0
 )
 
+require github.com/google/uuid v1.6.0 // indirect
+
 require (
 	github.com/itchyny/gojq v0.12.17
 	github.com/itchyny/timefmt-go v0.1.6 // indirect

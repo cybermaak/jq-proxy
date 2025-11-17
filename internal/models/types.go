@@ -1,3 +1,4 @@
+// Package models defines the core data structures and types used throughout the proxy service.
 package models
 
 import (

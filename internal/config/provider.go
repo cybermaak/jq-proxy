@@ -1,3 +1,4 @@
+// Package config provides configuration loading and management functionality.
 package config
 
 import "jq-proxy-service/internal/models"

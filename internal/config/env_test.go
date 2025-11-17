@@ -36,27 +36,27 @@ func TestEnvProvider_LoadConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name           string
-		envVars        map[string]string
-		expectedPort   int
-		expectedRead   int
-		expectedWrite  int
+		name          string
+		envVars       map[string]string
+		expectedPort  int
+		expectedRead  int
+		expectedWrite int
 	}{
 		{
-			name:           "no environment variables - use defaults",
-			envVars:        map[string]string{},
-			expectedPort:   8080, // Default from env provider
-			expectedRead:   30,   // Default from env provider
-			expectedWrite:  30,   // Default from env provider
+			name:          "no environment variables - use defaults",
+			envVars:       map[string]string{},
+			expectedPort:  8080, // Default from env provider
+			expectedRead:  30,   // Default from env provider
+			expectedWrite: 30,   // Default from env provider
 		},
 		{
 			name: "override port only",
 			envVars: map[string]string{
 				"PROXY_PORT": "9090",
 			},
-			expectedPort:   9090,
-			expectedRead:   30,
-			expectedWrite:  30,
+			expectedPort:  9090,
+			expectedRead:  30,
+			expectedWrite: 30,
 		},
 		{
 			name: "override all server settings",
@@ -65,9 +65,9 @@ func TestEnvProvider_LoadConfig(t *testing.T) {
 				"PROXY_READ_TIMEOUT":  "60",
 				"PROXY_WRITE_TIMEOUT": "45",
 			},
-			expectedPort:   3000,
-			expectedRead:   60,
-			expectedWrite:  45,
+			expectedPort:  3000,
+			expectedRead:  60,
+			expectedWrite: 45,
 		},
 	}
 

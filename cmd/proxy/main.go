@@ -12,6 +12,7 @@ import (
 
 	"jq-proxy-service/internal/client"
 	"jq-proxy-service/internal/config"
+	"jq-proxy-service/internal/logging"
 	"jq-proxy-service/internal/proxy"
 	"jq-proxy-service/internal/transform"
 
@@ -24,16 +25,12 @@ func main() {
 	var logLevel = flag.String("log-level", "info", "Log level (debug, info, warn, error)")
 	flag.Parse()
 
-	// Initialize logger
-	logger := logrus.New()
-	logger.SetFormatter(&logrus.JSONFormatter{})
-
-	// Set log level
-	level, err := logrus.ParseLevel(*logLevel)
+	// Initialize logger with metrics
+	logger, err := logging.NewLogger(*logLevel)
 	if err != nil {
-		logger.WithError(err).Fatal("Invalid log level")
+		fmt.Fprintf(os.Stderr, "Failed to initialize logger: %v\n", err)
+		os.Exit(1)
 	}
-	logger.SetLevel(level)
 
 	logger.WithField("config_path", *configPath).Info("Starting JQ Proxy Service")
 
@@ -51,7 +48,9 @@ func main() {
 
 	// Override port if specified via command line
 	if *port != "" {
-		fmt.Sscanf(*port, "%d", &proxyConfig.Server.Port)
+		if _, err := fmt.Sscanf(*port, "%d", &proxyConfig.Server.Port); err != nil {
+			logger.WithError(err).Fatal("Invalid port number")
+		}
 		logger.WithField("port", proxyConfig.Server.Port).Info("Port overridden by command line")
 	}
 
@@ -99,7 +98,8 @@ func main() {
 	// Attempt graceful shutdown
 	if err := server.Shutdown(ctx); err != nil {
 		logger.WithError(err).Error("Server forced to shutdown")
-		os.Exit(1)
+		cancel()
+		return
 	}
 
 	logger.Info("Server shutdown complete")

@@ -1,3 +1,4 @@
+// Package transform provides response transformation capabilities using jq queries.
 package transform
 
 import (

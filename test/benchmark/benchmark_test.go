@@ -11,11 +11,10 @@ import (
 	"time"
 
 	"jq-proxy-service/internal/client"
+	"jq-proxy-service/internal/logging"
 	"jq-proxy-service/internal/models"
 	"jq-proxy-service/internal/proxy"
 	"jq-proxy-service/internal/transform"
-
-	"github.com/sirupsen/logrus"
 )
 
 // BenchmarkSuite contains performance benchmarks
@@ -75,8 +74,7 @@ func setupBenchmark() *BenchmarkSuite {
 	httpClient := client.NewClient(30 * time.Second)
 	transformer := transform.NewUnifiedTransformer()
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger, _ := logging.NewLogger("error")
 
 	proxyService := proxy.NewService(configProvider, httpClient, transformer, logger)
 	handler := proxy.NewHandler(proxyService, logger)
@@ -249,8 +247,7 @@ func BenchmarkMemoryUsage(b *testing.B) {
 	httpClient := client.NewClient(30 * time.Second)
 	transformer := transform.NewUnifiedTransformer()
 
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger, _ := logging.NewLogger("error")
 
 	proxyService := proxy.NewService(configProvider, httpClient, transformer, logger)
 	handler := proxy.NewHandler(proxyService, logger)

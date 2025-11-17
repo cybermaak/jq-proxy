@@ -2,27 +2,37 @@ run:
   timeout: 5m
   issues-exit-code: 1
   tests: true
-  skip-dirs:
+
+issues:
+  exclude-dirs:
     - vendor
     - tmp
     - bin
-  skip-files:
+  exclude-files:
     - ".*_test.go"
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+    - path: cmd/
+      linters:
+        - gocyclo
+  max-issues-per-linter: 0
+  max-same-issues: 0
 
 output:
-  format: colored-line-number
-  print-issued-lines: true
-  print-linter-name: true
+  formats:
+    - format: colored-line-number
 
 linters-settings:
   govet:
-    check-shadowing: true
-  golint:
-    min-confidence: 0.8
+    enable:
+      - shadow
   gocyclo:
     min-complexity: 15
-  maligned:
-    suggest-new: true
   dupl:
     threshold: 100
   goconst:
@@ -42,54 +52,38 @@ linters-settings:
     disabled-checks:
       - wrapperFunc
       - dupImport
+  depguard:
+    rules:
+      main:
+        deny:
+          - pkg: "io/ioutil"
+            desc: "Use os or io package instead"
 
 linters:
   enable:
     - bodyclose
-    - deadcode
     - depguard
     - dogsled
     - dupl
     - errcheck
-    - gochecknoinits
     - goconst
     - gocritic
     - gocyclo
     - gofmt
     - goimports
-    - golint
     - gosec
     - gosimple
     - govet
     - ineffassign
-    - interfacer
     - lll
     - misspell
     - nakedret
-    - scopelint
     - staticcheck
-    - structcheck
     - stylecheck
     - typecheck
     - unconvert
     - unparam
     - unused
-    - varcheck
     - whitespace
-
-issues:
-  exclude-rules:
-    - path: _test\.go
-      linters:
-        - gocyclo
-        - errcheck
-        - dupl
-        - gosec
-    - path: cmd/
-      linters:
-        - gocyclo
-  exclude:
-    - "Error return value of .((os\\.)?std(out|err)\\..*|.*Close|.*Flush|os\\.Remove(All)?|.*printf?|os\\.(Un)?Setenv). is not checked"
-  exclude-use-default: false
-  max-issues-per-linter: 0
-  max-same-issues: 0
+  disable:
+    - gochecknoinits

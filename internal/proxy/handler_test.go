@@ -9,11 +9,11 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"jq-proxy-service/internal/logging"
 	"jq-proxy-service/internal/models"
 )
 
@@ -30,11 +30,16 @@ func (m *MockProxyService) HandleRequest(ctx context.Context, endpointName strin
 	return args.Get(0).(*models.ProxyResponse), args.Error(1)
 }
 
+// Helper function to create a test logger
+func createTestLogger() *logging.Logger {
+	logger, _ := logging.NewLogger("error")
+	return logger
+}
+
 func TestHandler_HandleProxyRequest_Success(t *testing.T) {
 	// Setup
 	mockService := &MockProxyService{}
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel) // Reduce log noise
+	logger := createTestLogger()
 
 	handler := NewHandler(mockService, logger)
 	router := handler.SetupRoutes()
@@ -93,8 +98,7 @@ func TestHandler_HandleProxyRequest_Success(t *testing.T) {
 func TestHandler_HandleProxyRequest_EndpointNotFound(t *testing.T) {
 	// Setup
 	mockService := &MockProxyService{}
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := createTestLogger()
 
 	handler := NewHandler(mockService, logger)
 	router := handler.SetupRoutes()
@@ -153,8 +157,7 @@ func TestHandler_HandleProxyRequest_EndpointNotFound(t *testing.T) {
 func TestHandler_HandleProxyRequest_InvalidJSON(t *testing.T) {
 	// Setup
 	mockService := &MockProxyService{}
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := createTestLogger()
 
 	handler := NewHandler(mockService, logger)
 	router := handler.SetupRoutes()
@@ -184,8 +187,7 @@ func TestHandler_HandleProxyRequest_InvalidJSON(t *testing.T) {
 func TestHandler_HandleProxyRequest_MissingRequiredFields(t *testing.T) {
 	// Setup
 	mockService := &MockProxyService{}
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := createTestLogger()
 
 	handler := NewHandler(mockService, logger)
 	router := handler.SetupRoutes()
@@ -219,8 +221,7 @@ func TestHandler_HandleProxyRequest_MissingRequiredFields(t *testing.T) {
 func TestHandler_HandleProxyRequest_TransformationError(t *testing.T) {
 	// Setup
 	mockService := &MockProxyService{}
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := createTestLogger()
 
 	handler := NewHandler(mockService, logger)
 	router := handler.SetupRoutes()
@@ -274,8 +275,7 @@ func TestHandler_HandleProxyRequest_TransformationError(t *testing.T) {
 func TestHandler_HandleProxyRequest_UpstreamError(t *testing.T) {
 	// Setup
 	mockService := &MockProxyService{}
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := createTestLogger()
 
 	handler := NewHandler(mockService, logger)
 	router := handler.SetupRoutes()
@@ -330,8 +330,7 @@ func TestHandler_HandleProxyRequest_UpstreamError(t *testing.T) {
 func TestHandler_HealthCheck(t *testing.T) {
 	// Setup
 	mockService := &MockProxyService{}
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := createTestLogger()
 
 	handler := NewHandler(mockService, logger)
 	router := handler.SetupRoutes()
@@ -357,8 +356,7 @@ func TestHandler_HealthCheck(t *testing.T) {
 func TestHandler_CORS(t *testing.T) {
 	// Setup
 	mockService := &MockProxyService{}
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := createTestLogger()
 
 	handler := NewHandler(mockService, logger)
 	router := handler.SetupRoutes()
@@ -381,8 +379,7 @@ func TestHandler_CORS(t *testing.T) {
 func TestHandler_PathExtraction(t *testing.T) {
 	// Setup
 	mockService := &MockProxyService{}
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger := createTestLogger()
 
 	handler := NewHandler(mockService, logger)
 	router := handler.SetupRoutes()
@@ -444,64 +441,4 @@ func TestHandler_PathExtraction(t *testing.T) {
 	}
 
 	mockService.AssertExpectations(t)
-}
-
-func TestGetClientIP(t *testing.T) {
-	tests := []struct {
-		name       string
-		headers    map[string]string
-		remoteAddr string
-		expected   string
-	}{
-		{
-			name: "X-Forwarded-For single IP",
-			headers: map[string]string{
-				"X-Forwarded-For": "192.168.1.1",
-			},
-			remoteAddr: "10.0.0.1:12345",
-			expected:   "192.168.1.1",
-		},
-		{
-			name: "X-Forwarded-For multiple IPs",
-			headers: map[string]string{
-				"X-Forwarded-For": "192.168.1.1, 10.0.0.1, 172.16.0.1",
-			},
-			remoteAddr: "10.0.0.1:12345",
-			expected:   "192.168.1.1",
-		},
-		{
-			name: "X-Real-IP",
-			headers: map[string]string{
-				"X-Real-IP": "192.168.1.1",
-			},
-			remoteAddr: "10.0.0.1:12345",
-			expected:   "192.168.1.1",
-		},
-		{
-			name:       "RemoteAddr fallback",
-			headers:    map[string]string{},
-			remoteAddr: "192.168.1.1:12345",
-			expected:   "192.168.1.1",
-		},
-		{
-			name:       "RemoteAddr without port",
-			headers:    map[string]string{},
-			remoteAddr: "192.168.1.1",
-			expected:   "192.168.1.1",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			req := httptest.NewRequest("GET", "/", nil)
-			req.RemoteAddr = tt.remoteAddr
-
-			for key, value := range tt.headers {
-				req.Header.Set(key, value)
-			}
-
-			result := getClientIP(req)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
 }

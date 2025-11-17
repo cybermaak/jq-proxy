@@ -7,12 +7,12 @@ import (
 	"net/url"
 	"testing"
 
-	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"jq-proxy-service/internal/client"
+	"jq-proxy-service/internal/logging"
 	"jq-proxy-service/internal/models"
 	"jq-proxy-service/internal/transform"
 )
@@ -69,8 +69,7 @@ func TestService_HandleRequest_Success(t *testing.T) {
 	mockConfig := &MockConfigProvider{}
 	mockClient := &MockHTTPClient{}
 	transformer := transform.NewUnifiedTransformer()
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel) // Reduce log noise in tests
+	logger, _ := logging.NewLogger("error")
 
 	service := NewService(mockConfig, mockClient, transformer, logger)
 
@@ -124,8 +123,7 @@ func TestService_HandleRequest_EndpointNotFound(t *testing.T) {
 	mockConfig := &MockConfigProvider{}
 	mockClient := &MockHTTPClient{}
 	transformer := transform.NewUnifiedTransformer()
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger, _ := logging.NewLogger("error")
 
 	service := NewService(mockConfig, mockClient, transformer, logger)
 
@@ -169,8 +167,7 @@ func TestService_HandleRequest_InvalidTransformation(t *testing.T) {
 	mockConfig := &MockConfigProvider{}
 	mockClient := &MockHTTPClient{}
 	transformer := transform.NewUnifiedTransformer()
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger, _ := logging.NewLogger("error")
 
 	service := NewService(mockConfig, mockClient, transformer, logger)
 
@@ -211,8 +208,7 @@ func TestService_HandleRequest_UpstreamError(t *testing.T) {
 	mockConfig := &MockConfigProvider{}
 	mockClient := &MockHTTPClient{}
 	transformer := transform.NewUnifiedTransformer()
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger, _ := logging.NewLogger("error")
 
 	service := NewService(mockConfig, mockClient, transformer, logger)
 
@@ -255,8 +251,7 @@ func TestService_HandleRequest_TransformationFailure(t *testing.T) {
 	mockConfig := &MockConfigProvider{}
 	mockClient := &MockHTTPClient{}
 	transformer := transform.NewUnifiedTransformer()
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger, _ := logging.NewLogger("error")
 
 	service := NewService(mockConfig, mockClient, transformer, logger)
 
@@ -296,8 +291,7 @@ func TestService_HandleRequest_NonJSONResponse(t *testing.T) {
 	mockConfig := &MockConfigProvider{}
 	mockClient := &MockHTTPClient{}
 	transformer := transform.NewUnifiedTransformer()
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger, _ := logging.NewLogger("error")
 
 	service := NewService(mockConfig, mockClient, transformer, logger)
 
@@ -346,8 +340,7 @@ func TestService_HandleRequest_HTTPErrorStatus(t *testing.T) {
 	mockConfig := &MockConfigProvider{}
 	mockClient := &MockHTTPClient{}
 	transformer := transform.NewUnifiedTransformer()
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger, _ := logging.NewLogger("error")
 
 	service := NewService(mockConfig, mockClient, transformer, logger)
 
@@ -396,8 +389,7 @@ func TestService_HandleRequest_WithQueryParamsAndHeaders(t *testing.T) {
 	mockConfig := &MockConfigProvider{}
 	mockClient := &MockHTTPClient{}
 	transformer := transform.NewUnifiedTransformer()
-	logger := logrus.New()
-	logger.SetLevel(logrus.ErrorLevel)
+	logger, _ := logging.NewLogger("error")
 
 	service := NewService(mockConfig, mockClient, transformer, logger)
 

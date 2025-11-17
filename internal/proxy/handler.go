@@ -1,3 +1,4 @@
+// Package proxy implements the HTTP proxy service with request handling and routing.
 package proxy
 
 import (
@@ -7,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 
+	"jq-proxy-service/internal/logging"
 	"jq-proxy-service/internal/models"
 
 	"github.com/gorilla/mux"
@@ -16,11 +18,11 @@ import (
 // Handler handles HTTP requests for the proxy service
 type Handler struct {
 	proxyService models.ProxyService
-	logger       *logrus.Logger
+	logger       *logging.Logger
 }
 
 // NewHandler creates a new HTTP handler
-func NewHandler(proxyService models.ProxyService, logger *logrus.Logger) *Handler {
+func NewHandler(proxyService models.ProxyService, logger *logging.Logger) *Handler {
 	return &Handler{
 		proxyService: proxyService,
 		logger:       logger,
@@ -34,12 +36,15 @@ func (h *Handler) SetupRoutes() *mux.Router {
 	// Health check endpoint
 	router.HandleFunc("/health", h.healthCheck).Methods("GET")
 
+	// Metrics endpoint
+	router.HandleFunc("/metrics", h.metricsHandler).Methods("GET")
+
 	// Main proxy endpoint - captures endpoint name and remaining path
 	router.HandleFunc("/proxy/{endpoint}/{path:.*}", h.handleProxyRequest).Methods("POST", "OPTIONS")
 	router.HandleFunc("/proxy/{endpoint}", h.handleProxyRequest).Methods("POST", "OPTIONS")
 
 	// Add middleware
-	router.Use(h.loggingMiddleware)
+	router.Use(logging.RequestLoggingMiddleware(h.logger))
 	router.Use(h.corsMiddleware)
 
 	return router
@@ -63,17 +68,16 @@ func (h *Handler) handleProxyRequest(w http.ResponseWriter, r *http.Request) {
 		path = "/" + path
 	}
 
-	h.logger.WithFields(logrus.Fields{
+	h.logger.WithContext(r.Context()).WithFields(logrus.Fields{
 		"endpoint": endpointName,
 		"path":     path,
 		"method":   r.Method,
-		"headers":  r.Header,
-	}).Info("Received proxy request")
+	}).Debug("Processing proxy request")
 
 	// Parse request body
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
-		h.logger.WithError(err).Error("Failed to read request body")
+		h.logger.WithContext(r.Context()).WithError(err).Error("Failed to read request body")
 		h.writeErrorResponse(w, http.StatusBadRequest, "INVALID_REQUEST", "Failed to read request body", nil)
 		return
 	}
@@ -81,7 +85,7 @@ func (h *Handler) handleProxyRequest(w http.ResponseWriter, r *http.Request) {
 	// Parse proxy request
 	proxyReq, err := models.ParseProxyRequest(body)
 	if err != nil {
-		h.logger.WithError(err).Error("Failed to parse proxy request")
+		h.logger.WithContext(r.Context()).WithError(err).Error("Failed to parse proxy request")
 		h.writeErrorResponse(w, http.StatusBadRequest, "INVALID_REQUEST", fmt.Sprintf("Invalid request format: %v", err), nil)
 		return
 	}
@@ -114,6 +118,12 @@ func (h *Handler) healthCheck(w http.ResponseWriter, r *http.Request) {
 	h.writeJSONResponse(w, http.StatusOK, response)
 }
 
+// metricsHandler provides metrics endpoint
+func (h *Handler) metricsHandler(w http.ResponseWriter, r *http.Request) {
+	metrics := h.logger.GetMetrics().GetMetrics()
+	h.writeJSONResponse(w, http.StatusOK, metrics)
+}
+
 // handleProxyError handles different types of proxy errors
 func (h *Handler) handleProxyError(w http.ResponseWriter, err error) {
 	if proxyErr, ok := err.(ProxyError); ok {
@@ -126,7 +136,9 @@ func (h *Handler) handleProxyError(w http.ResponseWriter, err error) {
 		)
 	} else {
 		// Generic error
-		h.logger.WithError(err).Error("Unexpected error in proxy request")
+		h.logger.WithFields(logrus.Fields{
+			"error": err.Error(),
+		}).Error("Unexpected error in proxy request")
 		h.writeErrorResponse(
 			w,
 			http.StatusInternalServerError,
@@ -160,30 +172,6 @@ func (h *Handler) writeErrorResponse(w http.ResponseWriter, statusCode int, code
 	h.writeJSONResponse(w, statusCode, errorResponse)
 }
 
-// loggingMiddleware logs HTTP requests
-func (h *Handler) loggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Create a response writer wrapper to capture status code
-		wrapper := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
-
-		h.logger.WithFields(logrus.Fields{
-			"method":     r.Method,
-			"path":       r.URL.Path,
-			"query":      r.URL.RawQuery,
-			"user_agent": r.UserAgent(),
-			"remote_ip":  getClientIP(r),
-		}).Info("HTTP request received")
-
-		next.ServeHTTP(wrapper, r)
-
-		h.logger.WithFields(logrus.Fields{
-			"method":      r.Method,
-			"path":        r.URL.Path,
-			"status_code": wrapper.statusCode,
-		}).Info("HTTP request completed")
-	})
-}
-
 // corsMiddleware adds CORS headers
 func (h *Handler) corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -198,39 +186,4 @@ func (h *Handler) corsMiddleware(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
-}
-
-// responseWriter wraps http.ResponseWriter to capture status code
-type responseWriter struct {
-	http.ResponseWriter
-	statusCode int
-}
-
-func (rw *responseWriter) WriteHeader(code int) {
-	rw.statusCode = code
-	rw.ResponseWriter.WriteHeader(code)
-}
-
-// getClientIP extracts the client IP address from the request
-func getClientIP(r *http.Request) string {
-	// Check X-Forwarded-For header first
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		// Take the first IP in the list
-		if idx := strings.Index(xff, ","); idx != -1 {
-			return strings.TrimSpace(xff[:idx])
-		}
-		return strings.TrimSpace(xff)
-	}
-
-	// Check X-Real-IP header
-	if xri := r.Header.Get("X-Real-IP"); xri != "" {
-		return strings.TrimSpace(xri)
-	}
-
-	// Fall back to RemoteAddr
-	if idx := strings.LastIndex(r.RemoteAddr, ":"); idx != -1 {
-		return r.RemoteAddr[:idx]
-	}
-
-	return r.RemoteAddr
 }

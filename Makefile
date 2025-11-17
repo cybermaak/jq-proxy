@@ -68,10 +68,14 @@ lint:
 	@echo "Running linters..."
 	go fmt ./...
 	go vet ./...
-	@if command -v golangci-lint > /dev/null 2>&1; then \
+	@GOBIN=$$(go env GOPATH)/bin; \
+	if [ -x "$$GOBIN/golangci-lint" ]; then \
+		$$GOBIN/golangci-lint run; \
+	elif command -v golangci-lint > /dev/null 2>&1; then \
 		golangci-lint run; \
 	else \
 		echo "golangci-lint not installed. Install with: make install-tools"; \
+		echo "Note: After installation, you may need to add \$$(go env GOPATH)/bin to your PATH"; \
 	fi
 
 # Install development dependencies
@@ -84,7 +88,7 @@ deps:
 # Install development tools
 install-tools:
 	@echo "Installing development tools..."
-	go install github.com/cosmtrek/air@latest
+	go install github.com/air-verse/air@latest
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	@echo "Development tools installed"
 

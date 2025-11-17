@@ -1,8 +1,8 @@
+// Package config provides configuration loading and management functionality.
 package config
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"sync"
 
@@ -34,7 +34,7 @@ func (fp *FileProvider) LoadConfig() (*models.ProxyConfig, error) {
 	}
 
 	// Read file content
-	data, err := ioutil.ReadFile(fp.filePath)
+	data, err := os.ReadFile(fp.filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read configuration file: %w", err)
 	}

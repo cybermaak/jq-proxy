@@ -1,3 +1,4 @@
+// Package client provides HTTP client functionality for making requests to target endpoints.
 package client
 
 import (
@@ -15,7 +16,13 @@ import (
 // HTTPClient defines the interface for HTTP client operations
 type HTTPClient interface {
 	Do(ctx context.Context, method, targetURL string, headers http.Header, body interface{}) (*Response, error)
-	ForwardRequest(ctx context.Context, method, baseURL, path string, queryParams url.Values, headers http.Header, body interface{}) (*Response, error)
+	ForwardRequest(
+		ctx context.Context,
+		method, baseURL, path string,
+		queryParams url.Values,
+		headers http.Header,
+		body interface{},
+	) (*Response, error)
 }
 
 // Response represents an HTTP response
@@ -45,7 +52,12 @@ func NewClient(timeout time.Duration) *Client {
 }
 
 // Do performs an HTTP request with the specified parameters
-func (c *Client) Do(ctx context.Context, method, targetURL string, headers http.Header, body interface{}) (*Response, error) {
+func (c *Client) Do(
+	ctx context.Context,
+	method, targetURL string,
+	headers http.Header,
+	body interface{},
+) (*Response, error) {
 	// Prepare request body
 	var reqBody io.Reader
 	if body != nil {
@@ -103,7 +115,13 @@ func (c *Client) Do(ctx context.Context, method, targetURL string, headers http.
 }
 
 // ForwardRequest forwards a request to a target endpoint with path and query parameters
-func (c *Client) ForwardRequest(ctx context.Context, method, baseURL, path string, queryParams url.Values, headers http.Header, body interface{}) (*Response, error) {
+func (c *Client) ForwardRequest(
+	ctx context.Context,
+	method, baseURL, path string,
+	queryParams url.Values,
+	headers http.Header,
+	body interface{},
+) (*Response, error) {
 	// Build target URL
 	targetURL, err := buildTargetURL(baseURL, path, queryParams)
 	if err != nil {
@@ -131,7 +149,7 @@ func buildTargetURL(baseURL, path string, queryParams url.Values) (string, error
 		} else if !strings.HasSuffix(base.Path, "/") && !strings.HasPrefix(path, "/") {
 			path = "/" + path
 		}
-		base.Path = base.Path + path
+		base.Path += path
 	}
 
 	// Add query parameters

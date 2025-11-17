@@ -1,3 +1,4 @@
+// Package proxy implements the HTTP proxy service with request handling and routing.
 package proxy
 
 import (
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"jq-proxy-service/internal/client"
+	"jq-proxy-service/internal/logging"
 	"jq-proxy-service/internal/models"
 	"jq-proxy-service/internal/transform"
 
@@ -19,11 +21,16 @@ type Service struct {
 	configProvider models.ConfigProvider
 	httpClient     client.HTTPClient
 	transformer    *transform.UnifiedTransformer
-	logger         *logrus.Logger
+	logger         *logging.Logger
 }
 
 // NewService creates a new proxy service instance
-func NewService(configProvider models.ConfigProvider, httpClient client.HTTPClient, transformer *transform.UnifiedTransformer, logger *logrus.Logger) models.ProxyService {
+func NewService(
+	configProvider models.ConfigProvider,
+	httpClient client.HTTPClient,
+	transformer *transform.UnifiedTransformer,
+	logger *logging.Logger,
+) models.ProxyService {
 	return &Service{
 		configProvider: configProvider,
 		httpClient:     httpClient,
@@ -33,9 +40,18 @@ func NewService(configProvider models.ConfigProvider, httpClient client.HTTPClie
 }
 
 // HandleRequest processes a proxy request and returns the transformed response
-func (s *Service) HandleRequest(ctx context.Context, endpointName string, path string, queryParams url.Values, headers http.Header, proxyReq *models.ProxyRequest) (*models.ProxyResponse, error) {
-	// Log the incoming request
-	s.logger.WithFields(logrus.Fields{
+func (s *Service) HandleRequest(
+	ctx context.Context,
+	endpointName, path string,
+	queryParams url.Values,
+	headers http.Header,
+	proxyReq *models.ProxyRequest,
+) (*models.ProxyResponse, error) {
+	// Record start time for metrics
+	startTime := time.Now()
+
+	// Log the incoming request with request ID
+	s.logger.WithContext(ctx).WithFields(logrus.Fields{
 		"endpoint": endpointName,
 		"path":     path,
 		"method":   proxyReq.Method,
@@ -44,7 +60,8 @@ func (s *Service) HandleRequest(ctx context.Context, endpointName string, path s
 	// Resolve endpoint
 	endpoint, exists := s.configProvider.GetEndpoint(endpointName)
 	if !exists {
-		s.logger.WithField("endpoint", endpointName).Warn("Endpoint not found")
+		s.logger.WithContext(ctx).WithField("endpoint", endpointName).Warn("Endpoint not found")
+		s.logger.GetMetrics().RecordError(endpointName)
 		return nil, &EndpointNotFoundError{
 			EndpointName:       endpointName,
 			AvailableEndpoints: s.getAvailableEndpoints(),
@@ -53,7 +70,8 @@ func (s *Service) HandleRequest(ctx context.Context, endpointName string, path s
 
 	// Validate transformation before making the request
 	if err := s.validateTransformation(proxyReq); err != nil {
-		s.logger.WithError(err).Error("Invalid transformation")
+		s.logger.WithContext(ctx).WithError(err).Error("Invalid transformation")
+		s.logger.GetMetrics().RecordError(endpointName)
 		return nil, &TransformationError{
 			Message: fmt.Sprintf("Invalid transformation: %v", err),
 			Details: map[string]interface{}{
@@ -66,7 +84,8 @@ func (s *Service) HandleRequest(ctx context.Context, endpointName string, path s
 	// Forward request to target endpoint
 	response, err := s.forwardRequest(ctx, endpoint, path, queryParams, headers, proxyReq)
 	if err != nil {
-		s.logger.WithError(err).Error("Failed to forward request")
+		s.logger.WithContext(ctx).WithError(err).Error("Failed to forward request")
+		s.logger.GetMetrics().RecordError(endpointName)
 		return nil, err
 	}
 
@@ -75,7 +94,8 @@ func (s *Service) HandleRequest(ctx context.Context, endpointName string, path s
 	if response.IsJSONResponse() {
 		responseData, err = response.ParseJSONBody()
 		if err != nil {
-			s.logger.WithError(err).Error("Failed to parse JSON response")
+			s.logger.WithContext(ctx).WithError(err).Error("Failed to parse JSON response")
+			s.logger.GetMetrics().RecordError(endpointName)
 			return nil, &UpstreamError{
 				Message:    "Failed to parse response from target endpoint",
 				StatusCode: response.StatusCode,
@@ -94,7 +114,8 @@ func (s *Service) HandleRequest(ctx context.Context, endpointName string, path s
 	transformedData, err := s.transformer.TransformRequest(responseData, proxyReq)
 
 	if err != nil {
-		s.logger.WithError(err).Error("Failed to transform response")
+		s.logger.WithContext(ctx).WithError(err).Error("Failed to transform response")
+		s.logger.GetMetrics().RecordError(endpointName)
 		return nil, &TransformationError{
 			Message: fmt.Sprintf("Failed to transform response: %v", err),
 			Details: map[string]interface{}{
@@ -105,9 +126,14 @@ func (s *Service) HandleRequest(ctx context.Context, endpointName string, path s
 		}
 	}
 
-	s.logger.WithFields(logrus.Fields{
+	// Record successful request metrics
+	duration := time.Since(startTime)
+	s.logger.GetMetrics().RecordRequest(endpointName, duration)
+
+	s.logger.WithContext(ctx).WithFields(logrus.Fields{
 		"endpoint":    endpointName,
 		"status_code": response.StatusCode,
+		"duration_ms": duration.Milliseconds(),
 	}).Info("Successfully processed proxy request")
 
 	return &models.ProxyResponse{
@@ -117,7 +143,14 @@ func (s *Service) HandleRequest(ctx context.Context, endpointName string, path s
 }
 
 // forwardRequest forwards the request to the target endpoint
-func (s *Service) forwardRequest(ctx context.Context, endpoint *models.Endpoint, path string, queryParams url.Values, headers http.Header, proxyReq *models.ProxyRequest) (*client.Response, error) {
+func (s *Service) forwardRequest(
+	ctx context.Context,
+	endpoint *models.Endpoint,
+	path string,
+	queryParams url.Values,
+	headers http.Header,
+	proxyReq *models.ProxyRequest,
+) (*client.Response, error) {
 	// Create a timeout context for the request
 	requestCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -147,7 +180,7 @@ func (s *Service) forwardRequest(ctx context.Context, endpoint *models.Endpoint,
 
 	// Check for HTTP error status codes
 	if response.StatusCode >= 400 {
-		s.logger.WithFields(logrus.Fields{
+		s.logger.WithContext(ctx).WithFields(logrus.Fields{
 			"endpoint":    endpoint.Name,
 			"status_code": response.StatusCode,
 		}).Warn("Target endpoint returned error status")
@@ -155,6 +188,12 @@ func (s *Service) forwardRequest(ctx context.Context, endpoint *models.Endpoint,
 		// For 4xx and 5xx errors, we still want to transform the response if possible
 		// but we'll preserve the original status code
 	}
+
+	s.logger.WithContext(ctx).WithFields(logrus.Fields{
+		"endpoint":    endpoint.Name,
+		"target":      endpoint.Target,
+		"status_code": response.StatusCode,
+	}).Debug("Request forwarded successfully")
 
 	return response, nil
 }
