@@ -34,7 +34,7 @@ func (h *Handler) SetupRoutes() *mux.Router {
 	router := mux.NewRouter()
 
 	// Health check endpoint
-	router.HandleFunc("/health", h.healthCheck).Methods("GET")
+	router.HandleFunc("/health", h.healthCheck).Methods("GET", "HEAD")
 
 	// Metrics endpoint
 	router.HandleFunc("/metrics", h.metricsHandler).Methods("GET")
