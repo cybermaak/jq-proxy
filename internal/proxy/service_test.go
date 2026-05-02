@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -71,7 +72,7 @@ func TestService_HandleRequest_Success(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger)
+	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
 
 	// Test data
 	endpoint := &models.Endpoint{
@@ -125,7 +126,7 @@ func TestService_HandleRequest_EndpointNotFound(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger)
+	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
 
 	proxyReq := &models.ProxyRequest{
 		Method:             "GET",
@@ -169,7 +170,7 @@ func TestService_HandleRequest_InvalidTransformation(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger)
+	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
 
 	endpoint := &models.Endpoint{
 		Name:   "test-service",
@@ -210,7 +211,7 @@ func TestService_HandleRequest_UpstreamError(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger)
+	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
 
 	endpoint := &models.Endpoint{
 		Name:   "test-service",
@@ -253,7 +254,7 @@ func TestService_HandleRequest_TransformationFailure(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger)
+	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
 
 	endpoint := &models.Endpoint{
 		Name:   "test-service",
@@ -293,7 +294,7 @@ func TestService_HandleRequest_NonJSONResponse(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger)
+	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
 
 	endpoint := &models.Endpoint{
 		Name:   "test-service",
@@ -335,6 +336,38 @@ func TestService_HandleRequest_NonJSONResponse(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
+func TestService_UsesConfiguredUpstreamTimeout(t *testing.T) {
+	mockConfig := &MockConfigProvider{}
+	mockClient := &MockHTTPClient{}
+	transformer := transform.NewUnifiedTransformer()
+	logger, _ := logging.NewLogger("error")
+
+	service := NewService(mockConfig, mockClient, transformer, logger, 5*time.Second)
+	endpoint := &models.Endpoint{Name: "test-service", Target: "https://api.example.com"}
+	proxyReq := &models.ProxyRequest{
+		Method:             "GET",
+		TransformationMode: models.TransformationModeJQ,
+		JQQuery:            ".",
+	}
+
+	mockConfig.On("GetEndpoint", "test-service").Return(endpoint, true)
+	mockClient.On("ForwardRequest", mock.Anything, "GET", "https://api.example.com", "/health", url.Values(nil), http.Header(nil), nil).
+		Run(func(args mock.Arguments) {
+			ctx := args.Get(0).(context.Context)
+			deadline, ok := ctx.Deadline()
+			require.True(t, ok)
+			assert.WithinDuration(t, time.Now().Add(5*time.Second), deadline, 500*time.Millisecond)
+		}).
+		Return(&client.Response{
+			StatusCode: 200,
+			Headers:    http.Header{"Content-Type": []string{"application/json"}},
+			Body:       []byte(`{"ok":true}`),
+		}, nil)
+
+	_, err := service.HandleRequest(context.Background(), "test-service", "/health", nil, nil, proxyReq)
+	require.NoError(t, err)
+}
+
 func TestService_HandleRequest_HTTPErrorStatus(t *testing.T) {
 	// Setup mocks
 	mockConfig := &MockConfigProvider{}
@@ -342,7 +375,7 @@ func TestService_HandleRequest_HTTPErrorStatus(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger)
+	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
 
 	endpoint := &models.Endpoint{
 		Name:   "test-service",
@@ -391,7 +424,7 @@ func TestService_HandleRequest_WithQueryParamsAndHeaders(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger)
+	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
 
 	endpoint := &models.Endpoint{
 		Name:   "test-service",
@@ -449,7 +482,7 @@ func TestService_GetConfig_Success(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger)
+	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
 
 	expected := &models.ProxyConfig{
 		Server: models.ServerConfig{Port: 8080, ReadTimeout: 30, WriteTimeout: 30},
@@ -473,7 +506,7 @@ func TestService_GetConfig_LoadError_ReturnsNil(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger)
+	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
 
 	mockConfig.On("LoadConfig").Return((*models.ProxyConfig)(nil), errors.New("disk error"))
 
@@ -489,7 +522,7 @@ func TestService_HandleRequest_JSONParseFailure(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger)
+	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
 
 	endpoint := &models.Endpoint{
 		Name:   "test-service",

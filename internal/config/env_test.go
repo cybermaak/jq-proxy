@@ -21,7 +21,8 @@ func TestEnvProvider_LoadConfig(t *testing.T) {
 		"server": {
 			"port": 8080,
 			"read_timeout": 30,
-			"write_timeout": 30
+			"write_timeout": 30,
+			"upstream_timeout": 30
 		},
 		"endpoints": {
 			"service1": {
@@ -36,38 +37,43 @@ func TestEnvProvider_LoadConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name          string
-		envVars       map[string]string
-		expectedPort  int
-		expectedRead  int
-		expectedWrite int
+		name             string
+		envVars          map[string]string
+		expectedPort     int
+		expectedRead     int
+		expectedWrite    int
+		expectedUpstream int
 	}{
 		{
-			name:          "no environment variables - use defaults",
-			envVars:       map[string]string{},
-			expectedPort:  8080, // Default from env provider
-			expectedRead:  30,   // Default from env provider
-			expectedWrite: 30,   // Default from env provider
+			name:             "no environment variables - use defaults",
+			envVars:          map[string]string{},
+			expectedPort:     8080, // Default from env provider
+			expectedRead:     30,   // Default from env provider
+			expectedWrite:    30,   // Default from env provider
+			expectedUpstream: 30,
 		},
 		{
 			name: "override port only",
 			envVars: map[string]string{
 				"PROXY_PORT": "9090",
 			},
-			expectedPort:  9090,
-			expectedRead:  30,
-			expectedWrite: 30,
+			expectedPort:     9090,
+			expectedRead:     30,
+			expectedWrite:    30,
+			expectedUpstream: 30,
 		},
 		{
 			name: "override all server settings",
 			envVars: map[string]string{
-				"PROXY_PORT":          "3000",
-				"PROXY_READ_TIMEOUT":  "60",
-				"PROXY_WRITE_TIMEOUT": "45",
+				"PROXY_PORT":             "3000",
+				"PROXY_READ_TIMEOUT":     "60",
+				"PROXY_WRITE_TIMEOUT":    "45",
+				"PROXY_UPSTREAM_TIMEOUT": "15",
 			},
-			expectedPort:  3000,
-			expectedRead:  60,
-			expectedWrite: 45,
+			expectedPort:     3000,
+			expectedRead:     60,
+			expectedWrite:    45,
+			expectedUpstream: 15,
 		},
 	}
 
@@ -77,6 +83,7 @@ func TestEnvProvider_LoadConfig(t *testing.T) {
 			os.Unsetenv("PROXY_PORT")
 			os.Unsetenv("PROXY_READ_TIMEOUT")
 			os.Unsetenv("PROXY_WRITE_TIMEOUT")
+			os.Unsetenv("PROXY_UPSTREAM_TIMEOUT")
 
 			// Set test environment variables
 			for key, value := range tt.envVars {
@@ -95,6 +102,7 @@ func TestEnvProvider_LoadConfig(t *testing.T) {
 			assert.Equal(t, tt.expectedPort, config.Server.Port)
 			assert.Equal(t, tt.expectedRead, config.Server.ReadTimeout)
 			assert.Equal(t, tt.expectedWrite, config.Server.WriteTimeout)
+			assert.Equal(t, tt.expectedUpstream, config.Server.UpstreamTimeout)
 
 			// Check that endpoints are still loaded from file
 			assert.Contains(t, config.Endpoints, "service1")
@@ -114,7 +122,8 @@ func TestEnvProvider_LoadConfig_InvalidEnvVars(t *testing.T) {
 		"server": {
 			"port": 8080,
 			"read_timeout": 30,
-			"write_timeout": 30
+			"write_timeout": 30,
+			"upstream_timeout": 30
 		},
 		"endpoints": {
 			"service1": {
@@ -155,6 +164,13 @@ func TestEnvProvider_LoadConfig_InvalidEnvVars(t *testing.T) {
 			errorMsg: "invalid PROXY_WRITE_TIMEOUT value",
 		},
 		{
+			name: "invalid upstream timeout",
+			envVars: map[string]string{
+				"PROXY_UPSTREAM_TIMEOUT": "invalid",
+			},
+			errorMsg: "invalid PROXY_UPSTREAM_TIMEOUT value",
+		},
+		{
 			name: "port out of range",
 			envVars: map[string]string{
 				"PROXY_PORT": "70000",
@@ -169,6 +185,7 @@ func TestEnvProvider_LoadConfig_InvalidEnvVars(t *testing.T) {
 			os.Unsetenv("PROXY_PORT")
 			os.Unsetenv("PROXY_READ_TIMEOUT")
 			os.Unsetenv("PROXY_WRITE_TIMEOUT")
+			os.Unsetenv("PROXY_UPSTREAM_TIMEOUT")
 
 			// Set test environment variables
 			for key, value := range tt.envVars {
@@ -198,7 +215,8 @@ func TestEnvProvider_GetEndpoint(t *testing.T) {
 		"server": {
 			"port": 8080,
 			"read_timeout": 30,
-			"write_timeout": 30
+			"write_timeout": 30,
+			"upstream_timeout": 30
 		},
 		"endpoints": {
 			"service1": {
@@ -247,7 +265,8 @@ func TestEnvProvider_Reload(t *testing.T) {
 	defer os.RemoveAll(tempDir)
 
 	configData := `{
-		"server": {"port": 8080, "read_timeout": 30, "write_timeout": 30},
+		"server": {"port": 8080, "read_timeout": 30, "write_timeout": 30,
+			"upstream_timeout": 30},
 		"endpoints": {"svc": {"name": "svc", "target": "https://api.example.com"}}
 	}`
 	configFile := filepath.Join(tempDir, "config.json")
@@ -273,10 +292,12 @@ func TestEnvProvider_GetConfig(t *testing.T) {
 	os.Setenv("PROXY_PORT", "7777")
 	os.Unsetenv("PROXY_READ_TIMEOUT")
 	os.Unsetenv("PROXY_WRITE_TIMEOUT")
+	os.Unsetenv("PROXY_UPSTREAM_TIMEOUT")
 	defer os.Unsetenv("PROXY_PORT")
 
 	configData := `{
-		"server": {"port": 9999, "read_timeout": 30, "write_timeout": 30},
+		"server": {"port": 9999, "read_timeout": 30, "write_timeout": 30,
+			"upstream_timeout": 30},
 		"endpoints": {"svc": {"name": "svc", "target": "https://api.example.com"}}
 	}`
 	configFile := filepath.Join(tempDir, "config.json")
