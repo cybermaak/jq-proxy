@@ -31,10 +31,11 @@ func NewService(
 	httpClient client.HTTPClient,
 	transformer *transform.UnifiedTransformer,
 	logger *logging.Logger,
-	upstreamTimeout time.Duration,
+	upstreamTimeout ...time.Duration,
 ) models.ProxyService {
-	if upstreamTimeout <= 0 {
-		upstreamTimeout = 30 * time.Second
+	resolvedUpstreamTimeout := 30 * time.Second
+	if len(upstreamTimeout) > 0 && upstreamTimeout[0] > 0 {
+		resolvedUpstreamTimeout = upstreamTimeout[0]
 	}
 
 	return &Service{
@@ -42,7 +43,7 @@ func NewService(
 		httpClient:      httpClient,
 		transformer:     transformer,
 		logger:          logger,
-		upstreamTimeout: upstreamTimeout,
+		upstreamTimeout: resolvedUpstreamTimeout,
 	}
 }
 

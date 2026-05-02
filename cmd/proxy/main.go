@@ -71,7 +71,7 @@ func main() {
 	transformer := transform.NewUnifiedTransformer()
 
 	// Initialize proxy service
-	proxyService := proxy.NewService(configProvider, httpClient, transformer, logger, time.Duration(proxyConfig.Server.UpstreamTimeout)*time.Second)
+	proxyService := proxy.NewService(configProvider, httpClient, transformer, logger)
 
 	// Initialize HTTP handler
 	handler := proxy.NewHandler(proxyService, logger)

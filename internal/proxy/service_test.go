@@ -72,7 +72,7 @@ func TestService_HandleRequest_Success(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
+	service := NewService(mockConfig, mockClient, transformer, logger)
 
 	// Test data
 	endpoint := &models.Endpoint{
@@ -126,7 +126,7 @@ func TestService_HandleRequest_EndpointNotFound(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
+	service := NewService(mockConfig, mockClient, transformer, logger)
 
 	proxyReq := &models.ProxyRequest{
 		Method:             "GET",
@@ -170,7 +170,7 @@ func TestService_HandleRequest_InvalidTransformation(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
+	service := NewService(mockConfig, mockClient, transformer, logger)
 
 	endpoint := &models.Endpoint{
 		Name:   "test-service",
@@ -211,7 +211,7 @@ func TestService_HandleRequest_UpstreamError(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
+	service := NewService(mockConfig, mockClient, transformer, logger)
 
 	endpoint := &models.Endpoint{
 		Name:   "test-service",
@@ -254,7 +254,7 @@ func TestService_HandleRequest_TransformationFailure(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
+	service := NewService(mockConfig, mockClient, transformer, logger)
 
 	endpoint := &models.Endpoint{
 		Name:   "test-service",
@@ -294,7 +294,7 @@ func TestService_HandleRequest_NonJSONResponse(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
+	service := NewService(mockConfig, mockClient, transformer, logger)
 
 	endpoint := &models.Endpoint{
 		Name:   "test-service",
@@ -375,7 +375,7 @@ func TestService_HandleRequest_HTTPErrorStatus(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
+	service := NewService(mockConfig, mockClient, transformer, logger)
 
 	endpoint := &models.Endpoint{
 		Name:   "test-service",
@@ -424,7 +424,7 @@ func TestService_HandleRequest_WithQueryParamsAndHeaders(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
+	service := NewService(mockConfig, mockClient, transformer, logger)
 
 	endpoint := &models.Endpoint{
 		Name:   "test-service",
@@ -482,7 +482,7 @@ func TestService_GetConfig_Success(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
+	service := NewService(mockConfig, mockClient, transformer, logger)
 
 	expected := &models.ProxyConfig{
 		Server: models.ServerConfig{Port: 8080, ReadTimeout: 30, WriteTimeout: 30},
@@ -506,7 +506,7 @@ func TestService_GetConfig_LoadError_ReturnsNil(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
+	service := NewService(mockConfig, mockClient, transformer, logger)
 
 	mockConfig.On("LoadConfig").Return((*models.ProxyConfig)(nil), errors.New("disk error"))
 
@@ -522,7 +522,7 @@ func TestService_HandleRequest_JSONParseFailure(t *testing.T) {
 	transformer := transform.NewUnifiedTransformer()
 	logger, _ := logging.NewLogger("error")
 
-	service := NewService(mockConfig, mockClient, transformer, logger, 30*time.Second)
+	service := NewService(mockConfig, mockClient, transformer, logger)
 
 	endpoint := &models.Endpoint{
 		Name:   "test-service",
