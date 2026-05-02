@@ -442,3 +442,88 @@ func TestService_HandleRequest_WithQueryParamsAndHeaders(t *testing.T) {
 	mockConfig.AssertExpectations(t)
 	mockClient.AssertExpectations(t)
 }
+
+func TestService_GetConfig_Success(t *testing.T) {
+	mockConfig := &MockConfigProvider{}
+	mockClient := &MockHTTPClient{}
+	transformer := transform.NewUnifiedTransformer()
+	logger, _ := logging.NewLogger("error")
+
+	service := NewService(mockConfig, mockClient, transformer, logger)
+
+	expected := &models.ProxyConfig{
+		Server: models.ServerConfig{Port: 8080, ReadTimeout: 30, WriteTimeout: 30},
+		Endpoints: map[string]*models.Endpoint{
+			"svc": {Name: "svc", Target: "https://api.example.com"},
+		},
+	}
+	mockConfig.On("LoadConfig").Return(expected, nil)
+
+	result := service.GetConfig()
+
+	require.NotNil(t, result)
+	assert.Equal(t, 8080, result.Server.Port)
+	assert.Contains(t, result.Endpoints, "svc")
+	mockConfig.AssertExpectations(t)
+}
+
+func TestService_GetConfig_LoadError_ReturnsNil(t *testing.T) {
+	mockConfig := &MockConfigProvider{}
+	mockClient := &MockHTTPClient{}
+	transformer := transform.NewUnifiedTransformer()
+	logger, _ := logging.NewLogger("error")
+
+	service := NewService(mockConfig, mockClient, transformer, logger)
+
+	mockConfig.On("LoadConfig").Return((*models.ProxyConfig)(nil), errors.New("disk error"))
+
+	result := service.GetConfig()
+
+	assert.Nil(t, result)
+	mockConfig.AssertExpectations(t)
+}
+
+func TestService_HandleRequest_JSONParseFailure(t *testing.T) {
+	mockConfig := &MockConfigProvider{}
+	mockClient := &MockHTTPClient{}
+	transformer := transform.NewUnifiedTransformer()
+	logger, _ := logging.NewLogger("error")
+
+	service := NewService(mockConfig, mockClient, transformer, logger)
+
+	endpoint := &models.Endpoint{
+		Name:   "test-service",
+		Target: "https://api.example.com",
+	}
+
+	proxyReq := &models.ProxyRequest{
+		Method:             "GET",
+		Body:               nil,
+		TransformationMode: models.TransformationModeJQ,
+		JQQuery:            "{result: .data}",
+	}
+
+	// Upstream claims JSON content-type but body is invalid JSON.
+	badResponse := &client.Response{
+		StatusCode: 200,
+		Headers:    http.Header{"Content-Type": []string{"application/json"}},
+		Body:       []byte(`{not valid json`),
+	}
+
+	mockConfig.On("GetEndpoint", "test-service").Return(endpoint, true)
+	mockClient.On("ForwardRequest", mock.Anything, "GET", "https://api.example.com", "/data", url.Values(nil), http.Header(nil), nil).Return(badResponse, nil)
+
+	ctx := context.Background()
+	result, err := service.HandleRequest(ctx, "test-service", "/data", nil, nil, proxyReq)
+
+	assert.Error(t, err)
+	assert.Nil(t, result)
+
+	upstreamErr, ok := err.(*UpstreamError)
+	require.True(t, ok)
+	assert.Contains(t, upstreamErr.Message, "Failed to parse response from target endpoint")
+	assert.Equal(t, http.StatusBadGateway, upstreamErr.HTTPStatusCode())
+
+	mockConfig.AssertExpectations(t)
+	mockClient.AssertExpectations(t)
+}

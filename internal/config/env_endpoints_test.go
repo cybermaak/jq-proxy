@@ -204,3 +204,55 @@ func clearEnv() {
 		}
 	}
 }
+
+func TestFullEnvProvider_Reload(t *testing.T) {
+	clearEnv()
+	os.Setenv("PROXY_PORT", "8080")
+	os.Setenv("PROXY_ENDPOINT_API_TARGET", "https://api.example.com")
+	defer clearEnv()
+
+	provider := NewFullEnvProvider()
+	_, err := provider.LoadConfig()
+	require.NoError(t, err)
+
+	// Reload should re-read env vars without error.
+	err = provider.Reload()
+	assert.NoError(t, err)
+}
+
+func TestFullEnvProvider_GetConfig_BeforeLoad_ReturnsNil(t *testing.T) {
+	clearEnv()
+	defer clearEnv()
+
+	provider := NewFullEnvProvider()
+	// GetConfig before any LoadConfig call — should return nil (no panic).
+	config := provider.GetConfig()
+	assert.Nil(t, config)
+}
+
+func TestFullEnvProvider_GetConfig_AfterLoad(t *testing.T) {
+	clearEnv()
+	os.Setenv("PROXY_PORT", "7070")
+	os.Setenv("PROXY_ENDPOINT_API_TARGET", "https://api.example.com")
+	defer clearEnv()
+
+	provider := NewFullEnvProvider()
+	_, err := provider.LoadConfig()
+	require.NoError(t, err)
+
+	config := provider.GetConfig()
+	require.NotNil(t, config)
+	assert.Equal(t, 7070, config.Server.Port)
+	assert.NotEmpty(t, config.Endpoints)
+}
+
+func TestFullEnvProvider_GetEndpoint_BeforeLoad(t *testing.T) {
+	clearEnv()
+	defer clearEnv()
+
+	provider := NewFullEnvProvider()
+	// GetEndpoint before LoadConfig should return false, not panic.
+	ep, exists := provider.GetEndpoint("any")
+	assert.False(t, exists)
+	assert.Nil(t, ep)
+}

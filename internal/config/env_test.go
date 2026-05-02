@@ -240,3 +240,64 @@ func TestEnvProvider_FileNotFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "configuration file not found")
 	assert.Nil(t, config)
 }
+
+func TestEnvProvider_Reload(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "config_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	configData := `{
+		"server": {"port": 8080, "read_timeout": 30, "write_timeout": 30},
+		"endpoints": {"svc": {"name": "svc", "target": "https://api.example.com"}}
+	}`
+	configFile := filepath.Join(tempDir, "config.json")
+	err = ioutil.WriteFile(configFile, []byte(configData), 0644)
+	require.NoError(t, err)
+
+	provider := NewEnvProvider(configFile)
+	_, err = provider.LoadConfig()
+	require.NoError(t, err)
+
+	// Reload should succeed and return no error.
+	err = provider.Reload()
+	assert.NoError(t, err)
+}
+
+func TestEnvProvider_GetConfig(t *testing.T) {
+	tempDir, err := ioutil.TempDir("", "config_test")
+	require.NoError(t, err)
+	defer os.RemoveAll(tempDir)
+
+	// EnvProvider always derives Server config from env vars (not the file),
+	// so set PROXY_PORT explicitly to confirm it flows through GetConfig.
+	os.Setenv("PROXY_PORT", "7777")
+	os.Unsetenv("PROXY_READ_TIMEOUT")
+	os.Unsetenv("PROXY_WRITE_TIMEOUT")
+	defer os.Unsetenv("PROXY_PORT")
+
+	configData := `{
+		"server": {"port": 9999, "read_timeout": 30, "write_timeout": 30},
+		"endpoints": {"svc": {"name": "svc", "target": "https://api.example.com"}}
+	}`
+	configFile := filepath.Join(tempDir, "config.json")
+	err = ioutil.WriteFile(configFile, []byte(configData), 0644)
+	require.NoError(t, err)
+
+	provider := NewEnvProvider(configFile)
+	_, err = provider.LoadConfig()
+	require.NoError(t, err)
+
+	config := provider.GetConfig()
+	require.NotNil(t, config)
+	// Server port comes from PROXY_PORT env var, not the file.
+	assert.Equal(t, 7777, config.Server.Port)
+	assert.Contains(t, config.Endpoints, "svc")
+}
+
+func TestEnvProvider_GetConfig_FallsBackOnError(t *testing.T) {
+	// Provider constructed with a bad path — GetConfig should not panic.
+	provider := NewEnvProvider("nonexistent_file.json")
+	config := provider.GetConfig()
+	// Both LoadConfig and the file fallback fail; result should be nil.
+	assert.Nil(t, config)
+}

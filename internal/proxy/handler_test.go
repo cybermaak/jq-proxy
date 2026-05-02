@@ -384,6 +384,160 @@ func TestHandler_CORS(t *testing.T) {
 	assert.Contains(t, rr.Header().Get("Access-Control-Allow-Headers"), "Content-Type")
 }
 
+func TestHandler_MetricsEndpoint(t *testing.T) {
+	mockService := &MockProxyService{}
+	logger := createTestLogger()
+
+	handler := NewHandler(mockService, logger)
+	router := handler.SetupRoutes()
+
+	req := httptest.NewRequest("GET", "/metrics", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
+
+	var response map[string]interface{}
+	err := json.Unmarshal(rr.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Contains(t, response, "total_requests")
+	assert.Contains(t, response, "total_errors")
+}
+
+func TestHandler_ConfigEndpoint_Success(t *testing.T) {
+	mockService := &MockProxyService{}
+	logger := createTestLogger()
+
+	config := &models.ProxyConfig{
+		Server: models.ServerConfig{
+			Port:         8080,
+			ReadTimeout:  30,
+			WriteTimeout: 30,
+		},
+		Endpoints: map[string]*models.Endpoint{
+			"svc": {Name: "svc", Target: "https://api.example.com"},
+		},
+	}
+	mockService.On("GetConfig").Return(config)
+
+	handler := NewHandler(mockService, logger)
+	router := handler.SetupRoutes()
+
+	req := httptest.NewRequest("GET", "/config", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
+
+	var response map[string]interface{}
+	err := json.Unmarshal(rr.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Contains(t, response, "server")
+	assert.Contains(t, response, "endpoints")
+
+	endpoints, ok := response["endpoints"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Contains(t, endpoints, "svc")
+
+	mockService.AssertExpectations(t)
+}
+
+func TestHandler_ConfigEndpoint_NilConfig(t *testing.T) {
+	mockService := &MockProxyService{}
+	logger := createTestLogger()
+
+	mockService.On("GetConfig").Return((*models.ProxyConfig)(nil))
+
+	handler := NewHandler(mockService, logger)
+	router := handler.SetupRoutes()
+
+	req := httptest.NewRequest("GET", "/config", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+
+	var errResp models.ErrorResponse
+	err := json.Unmarshal(rr.Body.Bytes(), &errResp)
+	require.NoError(t, err)
+	assert.Equal(t, "CONFIG_ERROR", errResp.Error.Code)
+
+	mockService.AssertExpectations(t)
+}
+
+func TestHandler_HandleProxyError_GenericError(t *testing.T) {
+	mockService := &MockProxyService{}
+	logger := createTestLogger()
+
+	handler := NewHandler(mockService, logger)
+	router := handler.SetupRoutes()
+
+	// Return a plain error (not implementing ProxyError) to exercise the else branch.
+	requestBody := map[string]interface{}{
+		"method":              "GET",
+		"body":                nil,
+		"transformation_mode": "jq",
+		"jq_query":            ".",
+	}
+	mockService.On("HandleRequest",
+		mock.Anything,
+		"svc",
+		"",
+		url.Values{},
+		mock.AnythingOfType("http.Header"),
+		mock.Anything,
+	).Return((*models.ProxyResponse)(nil), assert.AnError)
+
+	reqBody, _ := json.Marshal(requestBody)
+	req := httptest.NewRequest("POST", "/proxy/svc", bytes.NewReader(reqBody))
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusInternalServerError, rr.Code)
+
+	var errResp models.ErrorResponse
+	err := json.Unmarshal(rr.Body.Bytes(), &errResp)
+	require.NoError(t, err)
+	assert.Equal(t, "INTERNAL_ERROR", errResp.Error.Code)
+
+	mockService.AssertExpectations(t)
+}
+
+func TestHandler_HandleProxyRequest_BodyReadError(t *testing.T) {
+	mockService := &MockProxyService{}
+	logger := createTestLogger()
+
+	handler := NewHandler(mockService, logger)
+	router := handler.SetupRoutes()
+
+	// errReader forces io.ReadAll to fail so we hit the read-error branch.
+	req := httptest.NewRequest("POST", "/proxy/svc/path", errReader{})
+	req.Header.Set("Content-Type", "application/json")
+
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusBadRequest, rr.Code)
+
+	var errResp models.ErrorResponse
+	err := json.Unmarshal(rr.Body.Bytes(), &errResp)
+	require.NoError(t, err)
+	assert.Equal(t, "INVALID_REQUEST", errResp.Error.Code)
+
+	mockService.AssertNotCalled(t, "HandleRequest")
+}
+
+// errReader is an io.Reader that always returns an error.
+type errReader struct{}
+
+func (errReader) Read([]byte) (int, error) {
+	return 0, assert.AnError
+}
+
 func TestHandler_PathExtraction(t *testing.T) {
 	// Setup
 	mockService := &MockProxyService{}
