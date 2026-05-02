@@ -604,3 +604,223 @@ func TestHandler_PathExtraction(t *testing.T) {
 
 	mockService.AssertExpectations(t)
 }
+
+func TestHandler_LivezAlias(t *testing.T) {
+	mockService := &MockProxyService{}
+	logger := createTestLogger()
+
+	handler := NewHandler(mockService, logger)
+	router := handler.SetupRoutes()
+
+	req := httptest.NewRequest("GET", "/livez", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	var response map[string]interface{}
+	err := json.Unmarshal(rr.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "healthy", response["status"])
+}
+
+func TestHandler_Readyz_ConfigUnavailable(t *testing.T) {
+	mockService := &MockProxyService{}
+	logger := createTestLogger()
+	mockService.On("GetConfig").Return((*models.ProxyConfig)(nil))
+
+	handler := NewHandler(mockService, logger)
+	router := handler.SetupRoutes()
+
+	req := httptest.NewRequest("GET", "/readyz", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+	var errResp models.ErrorResponse
+	err := json.Unmarshal(rr.Body.Bytes(), &errResp)
+	require.NoError(t, err)
+	assert.Equal(t, "NOT_READY", errResp.Error.Code)
+	mockService.AssertExpectations(t)
+}
+
+func TestHandler_Readyz_ConfigReady_DefaultMode(t *testing.T) {
+	mockService := &MockProxyService{}
+	logger := createTestLogger()
+	config := &models.ProxyConfig{Endpoints: map[string]*models.Endpoint{}}
+	mockService.On("GetConfig").Return(config)
+
+	handler := NewHandler(mockService, logger)
+	router := handler.SetupRoutes()
+
+	req := httptest.NewRequest("GET", "/readyz", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	var response map[string]interface{}
+	err := json.Unmarshal(rr.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "ready", response["status"])
+	checks, ok := response["checks"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Equal(t, "ok", checks["config"])
+	assert.NotContains(t, checks, "dependencies")
+	mockService.AssertExpectations(t)
+}
+
+func TestHandler_Readyz_DependencyCheckFailure(t *testing.T) {
+	mockService := &MockProxyService{}
+	logger := createTestLogger()
+
+	downstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer downstream.Close()
+
+	config := &models.ProxyConfig{Endpoints: map[string]*models.Endpoint{
+		"downstream": {Name: "downstream", Target: downstream.URL},
+	}}
+	mockService.On("GetConfig").Return(config)
+
+	handler := NewHandler(mockService, logger)
+	router := handler.SetupRoutes()
+
+	req := httptest.NewRequest("GET", "/readyz?check_deps=true", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+	var response map[string]interface{}
+	err := json.Unmarshal(rr.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "not_ready", response["status"])
+
+	checks := response["checks"].(map[string]interface{})
+	deps := checks["dependencies"].(map[string]interface{})
+	dep := deps["downstream"].(map[string]interface{})
+	assert.Equal(t, "error", dep["status"])
+	mockService.AssertExpectations(t)
+}
+
+func TestHandler_Readyz_DependencyCheckSuccess(t *testing.T) {
+	mockService := &MockProxyService{}
+	logger := createTestLogger()
+
+	downstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodHead {
+			t.Fatalf("expected HEAD method, got %s", r.Method)
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer downstream.Close()
+
+	config := &models.ProxyConfig{Endpoints: map[string]*models.Endpoint{
+		"downstream": {Name: "downstream", Target: downstream.URL},
+	}}
+	mockService.On("GetConfig").Return(config)
+
+	handler := NewHandler(mockService, logger)
+	router := handler.SetupRoutes()
+
+	req := httptest.NewRequest("GET", "/readyz?check_deps=1", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	var response map[string]interface{}
+	err := json.Unmarshal(rr.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "ready", response["status"])
+
+	checks := response["checks"].(map[string]interface{})
+	deps := checks["dependencies"].(map[string]interface{})
+	dep := deps["downstream"].(map[string]interface{})
+	assert.Equal(t, "ok", dep["status"])
+	mockService.AssertExpectations(t)
+}
+
+func TestShouldCheckDependencies(t *testing.T) {
+	tests := []struct {
+		name string
+		url  string
+		want bool
+	}{
+		{name: "default false", url: "/readyz", want: false},
+		{name: "true", url: "/readyz?check_deps=true", want: true},
+		{name: "one", url: "/readyz?check_deps=1", want: true},
+		{name: "case insensitive", url: "/readyz?check_deps=TRUE", want: true},
+		{name: "other value", url: "/readyz?check_deps=" + url.QueryEscape("yes"), want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", tt.url, nil)
+			got := shouldCheckDependencies(req.URL.Query())
+			if got != tt.want {
+				t.Fatalf("shouldCheckDependencies() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHandler_Readyz_DependencyInvalidTarget(t *testing.T) {
+	mockService := &MockProxyService{}
+	logger := createTestLogger()
+
+	config := &models.ProxyConfig{Endpoints: map[string]*models.Endpoint{
+		"bad": {Name: "bad", Target: "://bad-url"},
+	}}
+	mockService.On("GetConfig").Return(config)
+
+	handler := NewHandler(mockService, logger)
+	router := handler.SetupRoutes()
+
+	req := httptest.NewRequest("GET", "/readyz?check_deps=true", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusServiceUnavailable, rr.Code)
+	var response map[string]interface{}
+	err := json.Unmarshal(rr.Body.Bytes(), &response)
+	require.NoError(t, err)
+	assert.Equal(t, "not_ready", response["status"])
+	mockService.AssertExpectations(t)
+}
+
+func TestHandler_Readyz_DependencyCheck_LimitsToKeyUpstreams(t *testing.T) {
+	mockService := &MockProxyService{}
+	logger := createTestLogger()
+
+	called := 0
+	downstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		called++
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer downstream.Close()
+
+	config := &models.ProxyConfig{Endpoints: map[string]*models.Endpoint{
+		"a": {Name: "a", Target: downstream.URL + "/a"},
+		"b": {Name: "b", Target: downstream.URL + "/b"},
+		"c": {Name: "c", Target: downstream.URL + "/c"},
+		"d": {Name: "d", Target: downstream.URL + "/d"},
+	}}
+	mockService.On("GetConfig").Return(config)
+
+	handler := NewHandler(mockService, logger)
+	router := handler.SetupRoutes()
+
+	req := httptest.NewRequest("GET", "/readyz?check_deps=true", nil)
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	assert.Equal(t, http.StatusOK, rr.Code)
+	assert.Equal(t, 3, called)
+
+	var response map[string]interface{}
+	err := json.Unmarshal(rr.Body.Bytes(), &response)
+	require.NoError(t, err)
+	checks := response["checks"].(map[string]interface{})
+	deps := checks["dependencies"].(map[string]interface{})
+	assert.Len(t, deps, 3)
+	mockService.AssertExpectations(t)
+}
