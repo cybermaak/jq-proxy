@@ -57,9 +57,10 @@ func (fep *FullEnvProvider) LoadConfig() (*models.ProxyConfig, error) {
 // loadServerConfigFromEnv loads server configuration from environment variables
 func loadServerConfigFromEnv() (*models.ServerConfig, error) {
 	config := &models.ServerConfig{
-		Port:         8080, // Default port
-		ReadTimeout:  30,   // Default read timeout in seconds
-		WriteTimeout: 30,   // Default write timeout in seconds
+		Port:            8080, // Default port
+		ReadTimeout:     30,   // Default read timeout in seconds
+		WriteTimeout:    30,   // Default write timeout in seconds
+		UpstreamTimeout: 30,   // Default upstream timeout in seconds
 	}
 
 	// Load port from environment
@@ -87,6 +88,15 @@ func loadServerConfigFromEnv() (*models.ServerConfig, error) {
 			return nil, fmt.Errorf("invalid PROXY_WRITE_TIMEOUT value: %s", timeoutStr)
 		}
 		config.WriteTimeout = timeout
+	}
+
+	// Load upstream timeout from environment
+	if timeoutStr := os.Getenv("PROXY_UPSTREAM_TIMEOUT"); timeoutStr != "" {
+		timeout, err := strconv.Atoi(timeoutStr)
+		if err != nil {
+			return nil, fmt.Errorf("invalid PROXY_UPSTREAM_TIMEOUT value: %s", timeoutStr)
+		}
+		config.UpstreamTimeout = timeout
 	}
 
 	// Validate the configuration

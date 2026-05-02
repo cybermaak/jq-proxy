@@ -39,16 +39,18 @@ type Endpoint struct {
 
 // ServerConfig represents server-specific configuration
 type ServerConfig struct {
-	Port         int `json:"port"`
-	ReadTimeout  int `json:"read_timeout"`
-	WriteTimeout int `json:"write_timeout"`
+	Port            int `json:"port"`
+	ReadTimeout     int `json:"read_timeout"`
+	WriteTimeout    int `json:"write_timeout"`
+	UpstreamTimeout int `json:"upstream_timeout"`
 }
 
 // TransformationMode represents the type of transformation to apply
 type TransformationMode string
 
 const (
-	TransformationModeJQ TransformationMode = "jq"
+	TransformationModeJQ          TransformationMode = "jq"
+	DefaultUpstreamTimeoutSeconds                    = 30
 )
 
 // ProxyRequest represents the incoming request payload
@@ -161,6 +163,8 @@ func (e *Endpoint) Validate() error {
 
 // Validate validates the ServerConfig
 func (sc *ServerConfig) Validate() error {
+	sc.applyDefaults()
+
 	if sc.Port <= 0 || sc.Port > 65535 {
 		return fmt.Errorf("port must be between 1 and 65535")
 	}
@@ -173,7 +177,17 @@ func (sc *ServerConfig) Validate() error {
 		return fmt.Errorf("write timeout must be non-negative")
 	}
 
+	if sc.UpstreamTimeout < 0 {
+		return fmt.Errorf("upstream timeout must be non-negative")
+	}
+
 	return nil
+}
+
+func (sc *ServerConfig) applyDefaults() {
+	if sc.UpstreamTimeout == 0 {
+		sc.UpstreamTimeout = DefaultUpstreamTimeoutSeconds
+	}
 }
 
 // ParseProxyRequest parses JSON data into a ProxyRequest

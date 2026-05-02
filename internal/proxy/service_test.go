@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -333,6 +334,38 @@ func TestService_HandleRequest_NonJSONResponse(t *testing.T) {
 
 	mockConfig.AssertExpectations(t)
 	mockClient.AssertExpectations(t)
+}
+
+func TestService_UsesConfiguredUpstreamTimeout(t *testing.T) {
+	mockConfig := &MockConfigProvider{}
+	mockClient := &MockHTTPClient{}
+	transformer := transform.NewUnifiedTransformer()
+	logger, _ := logging.NewLogger("error")
+
+	service := NewService(mockConfig, mockClient, transformer, logger, 5*time.Second)
+	endpoint := &models.Endpoint{Name: "test-service", Target: "https://api.example.com"}
+	proxyReq := &models.ProxyRequest{
+		Method:             "GET",
+		TransformationMode: models.TransformationModeJQ,
+		JQQuery:            ".",
+	}
+
+	mockConfig.On("GetEndpoint", "test-service").Return(endpoint, true)
+	mockClient.On("ForwardRequest", mock.Anything, "GET", "https://api.example.com", "/health", url.Values(nil), http.Header(nil), nil).
+		Run(func(args mock.Arguments) {
+			ctx := args.Get(0).(context.Context)
+			deadline, ok := ctx.Deadline()
+			require.True(t, ok)
+			assert.WithinDuration(t, time.Now().Add(5*time.Second), deadline, 500*time.Millisecond)
+		}).
+		Return(&client.Response{
+			StatusCode: 200,
+			Headers:    http.Header{"Content-Type": []string{"application/json"}},
+			Body:       []byte(`{"ok":true}`),
+		}, nil)
+
+	_, err := service.HandleRequest(context.Background(), "test-service", "/health", nil, nil, proxyReq)
+	require.NoError(t, err)
 }
 
 func TestService_HandleRequest_HTTPErrorStatus(t *testing.T) {

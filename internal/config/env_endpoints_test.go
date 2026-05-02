@@ -21,6 +21,7 @@ func TestFullEnvProvider_LoadConfig(t *testing.T) {
 				"PROXY_PORT":                         "9000",
 				"PROXY_READ_TIMEOUT":                 "60",
 				"PROXY_WRITE_TIMEOUT":                "60",
+				"PROXY_UPSTREAM_TIMEOUT":             "45",
 				"PROXY_ENDPOINT_USER_SERVICE_TARGET": "https://api.example.com/users",
 				"PROXY_ENDPOINT_POST_SERVICE_TARGET": "https://api.example.com/posts",
 			},
@@ -194,6 +195,7 @@ func clearEnv() {
 	os.Unsetenv("PROXY_PORT")
 	os.Unsetenv("PROXY_READ_TIMEOUT")
 	os.Unsetenv("PROXY_WRITE_TIMEOUT")
+	os.Unsetenv("PROXY_UPSTREAM_TIMEOUT")
 	os.Unsetenv("PROXY_ENDPOINTS_JSON")
 
 	// Clear all PROXY_ENDPOINT_* variables

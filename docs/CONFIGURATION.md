@@ -23,7 +23,8 @@ By default, the service looks for `configs/config.json`. You can specify a custo
   "server": {
     "port": 8080,
     "read_timeout": 30,
-    "write_timeout": 30
+    "write_timeout": 30,
+    "upstream_timeout": 30
   },
   "endpoints": {
     "endpoint-name": {
@@ -115,6 +116,18 @@ Maximum duration before timing out writes of the response.
 ```bash
 PROXY_WRITE_TIMEOUT=60 ./proxy -config configs/config.json
 ```
+
+---
+
+### `server.upstream_timeout`
+
+**Type:** Integer  
+**Required:** Yes  
+**Default:** 30  
+**Unit:** Seconds  
+**Environment Variable:** `PROXY_UPSTREAM_TIMEOUT`
+
+Maximum duration for proxied upstream requests before cancellation.
 
 ---
 
@@ -221,6 +234,7 @@ Environment variables can override server configuration settings. This is partic
 | `PROXY_PORT` | Server port | Integer | 8080 |
 | `PROXY_READ_TIMEOUT` | Read timeout in seconds | Integer | 30 |
 | `PROXY_WRITE_TIMEOUT` | Write timeout in seconds | Integer | 30 |
+| `PROXY_UPSTREAM_TIMEOUT` | Upstream request timeout in seconds | Integer | 30 |
 
 #### Endpoint Configuration
 
@@ -349,7 +363,8 @@ Set the logging level.
   "server": {
     "port": 8080,
     "read_timeout": 30,
-    "write_timeout": 30
+    "write_timeout": 30,
+    "upstream_timeout": 30
   },
   "endpoints": {
     "api": {
@@ -369,7 +384,8 @@ Set the logging level.
   "server": {
     "port": 8080,
     "read_timeout": 30,
-    "write_timeout": 30
+    "write_timeout": 30,
+    "upstream_timeout": 30
   },
   "endpoints": {
     "user-service": {
@@ -397,7 +413,8 @@ Set the logging level.
   "server": {
     "port": 8080,
     "read_timeout": 60,
-    "write_timeout": 60
+    "write_timeout": 60,
+      "upstream_timeout": 60
   },
   "endpoints": {
     "user-api": {
@@ -433,7 +450,8 @@ PROXY_WRITE_TIMEOUT=60 \
   "server": {
     "port": 3000,
     "read_timeout": 30,
-    "write_timeout": 30
+    "write_timeout": 30,
+    "upstream_timeout": 30
   },
   "endpoints": {
     "local-api": {

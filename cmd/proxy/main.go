@@ -65,7 +65,7 @@ func main() {
 	}
 
 	// Initialize HTTP client
-	httpClient := client.NewClient(time.Duration(proxyConfig.Server.ReadTimeout) * time.Second)
+	httpClient := client.NewClient(time.Duration(proxyConfig.Server.UpstreamTimeout) * time.Second)
 
 	// Initialize unified transformer (supports jq)
 	transformer := transform.NewUnifiedTransformer()

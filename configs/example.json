@@ -2,7 +2,8 @@
   "server": {
     "port": 8088,
     "read_timeout": 30,
-    "write_timeout": 30
+    "write_timeout": 30,
+    "upstream_timeout": 30
   },
   "endpoints": {
     "user-service": {

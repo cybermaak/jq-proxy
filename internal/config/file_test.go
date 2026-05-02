@@ -28,7 +28,8 @@ func TestFileProvider_LoadConfig(t *testing.T) {
 				"server": {
 					"port": 8080,
 					"read_timeout": 30,
-					"write_timeout": 30
+					"write_timeout": 30,
+			"upstream_timeout": 30
 				},
 				"endpoints": {
 					"service1": {
@@ -38,6 +39,23 @@ func TestFileProvider_LoadConfig(t *testing.T) {
 					"service2": {
 						"name": "service2",
 						"target": "http://api2.example.com"
+					}
+				}
+			}`,
+			expectError: false,
+		},
+		{
+			name: "valid configuration defaults upstream timeout when omitted",
+			configData: `{
+				"server": {
+					"port": 8080,
+					"read_timeout": 30,
+					"write_timeout": 30
+				},
+				"endpoints": {
+					"service1": {
+						"name": "service1",
+						"target": "https://api1.example.com"
 					}
 				}
 			}`,
@@ -59,7 +77,8 @@ func TestFileProvider_LoadConfig(t *testing.T) {
 				"server": {
 					"port": 8080,
 					"read_timeout": 30,
-					"write_timeout": 30
+					"write_timeout": 30,
+			"upstream_timeout": 30
 				},
 				"endpoints": {}
 			}`,
@@ -72,7 +91,8 @@ func TestFileProvider_LoadConfig(t *testing.T) {
 				"server": {
 					"port": 0,
 					"read_timeout": 30,
-					"write_timeout": 30
+					"write_timeout": 30,
+			"upstream_timeout": 30
 				},
 				"endpoints": {
 					"service1": {
@@ -105,6 +125,7 @@ func TestFileProvider_LoadConfig(t *testing.T) {
 				assert.NoError(t, err)
 				assert.NotNil(t, config)
 				assert.Equal(t, 8080, config.Server.Port)
+				assert.Equal(t, 30, config.Server.UpstreamTimeout)
 				assert.Contains(t, config.Endpoints, "service1")
 			}
 		})
@@ -130,7 +151,8 @@ func TestFileProvider_GetEndpoint(t *testing.T) {
 		"server": {
 			"port": 8080,
 			"read_timeout": 30,
-			"write_timeout": 30
+			"write_timeout": 30,
+			"upstream_timeout": 30
 		},
 		"endpoints": {
 			"service1": {
@@ -211,7 +233,8 @@ func TestFileProvider_Reload(t *testing.T) {
 		"server": {
 			"port": 8080,
 			"read_timeout": 30,
-			"write_timeout": 30
+			"write_timeout": 30,
+			"upstream_timeout": 30
 		},
 		"endpoints": {
 			"service1": {
@@ -225,7 +248,8 @@ func TestFileProvider_Reload(t *testing.T) {
 		"server": {
 			"port": 9090,
 			"read_timeout": 60,
-			"write_timeout": 60
+			"write_timeout": 60,
+			"upstream_timeout": 60
 		},
 		"endpoints": {
 			"service1": {
@@ -276,7 +300,8 @@ func TestFileProvider_ThreadSafety(t *testing.T) {
 		"server": {
 			"port": 8080,
 			"read_timeout": 30,
-			"write_timeout": 30
+			"write_timeout": 30,
+			"upstream_timeout": 30
 		},
 		"endpoints": {
 			"service1": {

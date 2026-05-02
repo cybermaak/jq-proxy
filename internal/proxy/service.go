@@ -18,10 +18,11 @@ import (
 
 // Service implements the ProxyService interface
 type Service struct {
-	configProvider models.ConfigProvider
-	httpClient     client.HTTPClient
-	transformer    *transform.UnifiedTransformer
-	logger         *logging.Logger
+	configProvider  models.ConfigProvider
+	httpClient      client.HTTPClient
+	transformer     *transform.UnifiedTransformer
+	logger          *logging.Logger
+	upstreamTimeout time.Duration
 }
 
 // NewService creates a new proxy service instance
@@ -30,12 +31,19 @@ func NewService(
 	httpClient client.HTTPClient,
 	transformer *transform.UnifiedTransformer,
 	logger *logging.Logger,
+	upstreamTimeout ...time.Duration,
 ) models.ProxyService {
+	resolvedUpstreamTimeout := 30 * time.Second
+	if len(upstreamTimeout) > 0 && upstreamTimeout[0] > 0 {
+		resolvedUpstreamTimeout = upstreamTimeout[0]
+	}
+
 	return &Service{
-		configProvider: configProvider,
-		httpClient:     httpClient,
-		transformer:    transformer,
-		logger:         logger,
+		configProvider:  configProvider,
+		httpClient:      httpClient,
+		transformer:     transformer,
+		logger:          logger,
+		upstreamTimeout: resolvedUpstreamTimeout,
 	}
 }
 
@@ -152,7 +160,7 @@ func (s *Service) forwardRequest(
 	proxyReq *models.ProxyRequest,
 ) (*client.Response, error) {
 	// Create a timeout context for the request
-	requestCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	requestCtx, cancel := context.WithTimeout(ctx, s.upstreamTimeout)
 	defer cancel()
 
 	// Forward the request
