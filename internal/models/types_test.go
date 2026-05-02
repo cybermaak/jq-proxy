@@ -55,6 +55,25 @@ func TestProxyRequest_Validate(t *testing.T) {
 			errMsg:  "jq_query is required",
 		},
 		{
+			name: "none mode without query",
+			request: ProxyRequest{
+				Method:             "GET",
+				Body:               map[string]interface{}{"key": "value"},
+				TransformationMode: TransformationModeNone,
+			},
+			wantErr: false,
+		},
+		{
+			name: "none mode with query allowed",
+			request: ProxyRequest{
+				Method:             "GET",
+				Body:               nil,
+				TransformationMode: TransformationModeNone,
+				JQQuery:            ".unused",
+			},
+			wantErr: false,
+		},
+		{
 			name: "case insensitive method",
 			request: ProxyRequest{
 				Method:             "post",
@@ -93,7 +112,7 @@ func TestProxyRequest_Validate(t *testing.T) {
 				JQQuery:            "{result: .data}",
 			},
 			wantErr: true,
-			errMsg:  "invalid transformation mode: invalid. Must be 'jq'",
+			errMsg:  "invalid transformation mode: invalid. Must be 'jq' or 'none'",
 		},
 	}
 

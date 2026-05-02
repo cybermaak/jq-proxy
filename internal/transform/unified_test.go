@@ -72,6 +72,24 @@ func TestUnifiedTransformer_TransformRequest_InvalidMode(t *testing.T) {
 	assert.Nil(t, result)
 }
 
+func TestUnifiedTransformer_TransformRequest_NoneMode(t *testing.T) {
+	transformer := NewUnifiedTransformer()
+
+	sampleData := map[string]interface{}{
+		"name": "passthrough",
+		"meta": map[string]interface{}{"version": 1},
+	}
+
+	req := &models.ProxyRequest{
+		Method:             "GET",
+		TransformationMode: models.TransformationModeNone,
+	}
+
+	result, err := transformer.TransformRequest(sampleData, req)
+	require.NoError(t, err)
+	assert.Equal(t, sampleData, result)
+}
+
 func TestUnifiedTransformer_ValidateTransformation_JQ(t *testing.T) {
 	transformer := NewUnifiedTransformer()
 
@@ -97,6 +115,13 @@ func TestUnifiedTransformer_ValidateTransformation_JQ(t *testing.T) {
 			},
 			expectError: true,
 			errorMsg:    "invalid jq query",
+		},
+		{
+			name: "none mode does not require jq query",
+			req: &models.ProxyRequest{
+				TransformationMode: models.TransformationModeNone,
+			},
+			expectError: false,
 		},
 	}
 
