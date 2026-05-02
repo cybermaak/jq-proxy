@@ -123,8 +123,26 @@ func (h *Handler) healthCheck(w http.ResponseWriter, r *http.Request) {
 
 // metricsHandler provides metrics endpoint
 func (h *Handler) metricsHandler(w http.ResponseWriter, r *http.Request) {
-	metrics := h.logger.GetMetrics().GetMetrics()
-	h.writeJSONResponse(w, http.StatusOK, metrics)
+	metricsSnapshot := h.logger.GetMetrics().GetMetrics()
+	endpoints := make(map[string]models.EndpointMetricsResponse, len(metricsSnapshot.Endpoints))
+	for endpointName, endpointMetrics := range metricsSnapshot.Endpoints {
+		endpoints[endpointName] = models.EndpointMetricsResponse{
+			RequestCount:          endpointMetrics.RequestCount,
+			ErrorCount:            endpointMetrics.ErrorCount,
+			TotalResponseTimeNs:   endpointMetrics.TotalResponseTime.Nanoseconds(),
+			AverageResponseTimeNs: endpointMetrics.AvgResponseTime.Nanoseconds(),
+		}
+	}
+
+	response := models.MetricsResponse{
+		SchemaVersion:         models.MetricsSchemaVersion,
+		TotalRequests:         metricsSnapshot.TotalRequests,
+		TotalErrors:           metricsSnapshot.TotalErrors,
+		AverageResponseTimeNs: metricsSnapshot.AverageResponseTime.Nanoseconds(),
+		Endpoints:             endpoints,
+	}
+
+	h.writeJSONResponse(w, http.StatusOK, response)
 }
 
 // configHandler provides current configuration endpoint
