@@ -21,18 +21,26 @@ func NewUnifiedTransformer() *UnifiedTransformer {
 
 // TransformRequest applies transformation based on the proxy request configuration
 func (ut *UnifiedTransformer) TransformRequest(data interface{}, req *models.ProxyRequest) (interface{}, error) {
-	if req.TransformationMode != models.TransformationModeJQ {
+	switch req.TransformationMode {
+	case models.TransformationModeJQ:
+		return ut.jqTransformer.TransformWithQuery(data, req.JQQuery)
+	case models.TransformationModeNone:
+		return data, nil
+	default:
 		return nil, fmt.Errorf("unsupported transformation mode: %s", req.TransformationMode)
 	}
-	return ut.jqTransformer.TransformWithQuery(data, req.JQQuery)
 }
 
 // ValidateTransformation validates transformation configuration
 func (ut *UnifiedTransformer) ValidateTransformation(req *models.ProxyRequest) error {
-	if req.TransformationMode != models.TransformationModeJQ {
+	switch req.TransformationMode {
+	case models.TransformationModeJQ:
+		return ut.jqTransformer.ValidateQuery(req.JQQuery)
+	case models.TransformationModeNone:
+		return nil
+	default:
 		return fmt.Errorf("unsupported transformation mode: %s", req.TransformationMode)
 	}
-	return ut.jqTransformer.ValidateQuery(req.JQQuery)
 }
 
 // GetJQTransformer returns the jq transformer

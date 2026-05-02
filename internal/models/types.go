@@ -49,6 +49,7 @@ type TransformationMode string
 
 const (
 	TransformationModeJQ TransformationMode = "jq"
+	TransformationModeNone TransformationMode = "none"
 )
 
 // ProxyRequest represents the incoming request payload
@@ -103,12 +104,12 @@ func (pr *ProxyRequest) Validate() error {
 	}
 
 	// Validate transformation mode
-	if pr.TransformationMode != TransformationModeJQ {
-		return fmt.Errorf("invalid transformation mode: %s. Must be 'jq'", pr.TransformationMode)
+	if pr.TransformationMode != TransformationModeJQ && pr.TransformationMode != TransformationModeNone {
+		return fmt.Errorf("invalid transformation mode: %s. Must be 'jq' or 'none'", pr.TransformationMode)
 	}
 
-	// Validate jq query is provided
-	if pr.JQQuery == "" {
+	// Validate jq query is provided when jq mode is selected
+	if pr.TransformationMode == TransformationModeJQ && pr.JQQuery == "" {
 		return fmt.Errorf("jq_query is required")
 	}
 

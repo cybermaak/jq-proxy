@@ -129,7 +129,7 @@ All query parameters are forwarded to the target endpoint.
 {
   "method": "GET|POST|PUT|PATCH|DELETE",
   "body": null | {} | [],
-  "transformation_mode": "jq",
+  "transformation_mode": "jq|none",
   "jq_query": "jq expression"
 }
 ```
@@ -137,11 +137,12 @@ All query parameters are forwarded to the target endpoint.
 **Request Fields:**
 - `method` (required) - HTTP method for the target request
 - `body` (optional) - Request body to send to the target endpoint
-- `transformation_mode` (optional) - Transformation mode, currently only "jq" is supported (default: "jq")
-- `jq_query` (required) - jq query expression to transform the response
+- `transformation_mode` (optional) - Transformation mode. Supported values: `"jq"` (default) and `"none"`.
+- `jq_query` (conditionally required) - Required when `transformation_mode` is `"jq"`; ignored for `"none"`.
 
 **Response:**
-The transformed response data based on the jq query.
+- For `transformation_mode: "jq"`: response data transformed by the provided `jq_query`.
+- For `transformation_mode: "none"`: upstream parsed payload is returned unchanged.
 
 **Status Codes:**
 - `200 OK` - Request successful
@@ -332,6 +333,31 @@ curl -X POST http://localhost:8080/proxy/user-service/users/1 \
 Headers `Authorization` and `X-Custom-Header` are forwarded to the target endpoint.
 
 **Note:** Headers with `jpx-` prefix are filtered out and not forwarded.
+
+---
+
+### Example 8: Passthrough (No Transformation)
+
+Forward the upstream payload without applying jq transformation.
+
+**Request:**
+```bash
+curl -X POST http://localhost:8080/proxy/user-service/users/1 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "method": "GET",
+    "transformation_mode": "none"
+  }'
+```
+
+**Response:**
+```json
+{
+  "id": 1,
+  "name": "Leanne Graham",
+  "email": "Sincere@example.biz"
+}
+```
 
 ---
 
