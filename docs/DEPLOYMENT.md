@@ -122,15 +122,25 @@ The service loads configuration in this order (later overrides earlier):
 
 ## Monitoring
 
-The service provides a health check endpoint:
+The service provides health and readiness endpoints:
 
 ```bash
-# Check service health
+# Process liveness (lightweight, no dependency checks)
 curl http://localhost:8080/health
+curl http://localhost:8080/livez
 
-# Docker health check
-docker ps  # Shows health status
+# Readiness (config loaded)
+curl http://localhost:8080/readyz
+
+# Optional cheap dependency probes (disabled by default)
+curl "http://localhost:8080/readyz?check_deps=true"
 ```
+
+Deployment expectation:
+- Use `/health` or `/livez` for container/process liveness probes.
+- Use `/readyz` for readiness probes and traffic gating.
+- Keep dependency probes off by default; enable them only when you explicitly want upstream-aware readiness signals.
+- Dependency probe mode is intentionally cheap and checks a small key-upstream subset (up to 3 configured endpoints).
 
 ## Troubleshooting
 

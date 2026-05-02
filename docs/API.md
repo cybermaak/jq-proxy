@@ -16,7 +16,7 @@ http://localhost:8080
 
 Check the service health status.
 
-**Endpoint:** `GET /health`
+**Endpoint:** `GET /health` or `GET /livez`
 
 **Response:**
 ```json
@@ -29,7 +29,48 @@ Check the service health status.
 **Status Codes:**
 - `200 OK` - Service is healthy
 
+
 ---
+
+### Readiness
+
+Check whether the service is ready to accept traffic.
+
+**Endpoint:** `GET /readyz`
+
+**Default Behavior:**
+- Validates runtime config availability (`proxyService.GetConfig() != nil`).
+- Does **not** probe upstream dependencies unless explicitly requested.
+
+**Optional Query Parameters:**
+- `check_deps=true` or `check_deps=1` - Enables a cheap dependency probe mode.
+
+When dependency checks are enabled, the service sends short-timeout `HEAD` requests to a small key-upstream set (up to 3 configured endpoints, selected by endpoint name sort order) and reports per-dependency status.
+
+**Ready Response (`200 OK`):**
+```json
+{
+  "status": "ready",
+  "service": "jq-proxy-service",
+  "checks": {
+    "config": "ok"
+  }
+}
+```
+
+**Not Ready Response (`503 Service Unavailable`):**
+```json
+{
+  "error": {
+    "code": "NOT_READY",
+    "message": "Configuration not available"
+  }
+}
+```
+
+**Status Codes:**
+- `200 OK` - Service is ready
+- `503 Service Unavailable` - Config unavailable or dependency check failure
 
 ### Metrics
 
