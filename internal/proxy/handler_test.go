@@ -387,6 +387,8 @@ func TestHandler_CORS(t *testing.T) {
 func TestHandler_MetricsEndpoint(t *testing.T) {
 	mockService := &MockProxyService{}
 	logger := createTestLogger()
+	logger.GetMetrics().RecordRequest("user-service", 100)
+	logger.GetMetrics().RecordError("user-service")
 
 	handler := NewHandler(mockService, logger)
 	router := handler.SetupRoutes()
@@ -398,11 +400,32 @@ func TestHandler_MetricsEndpoint(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code)
 	assert.Equal(t, "application/json", rr.Header().Get("Content-Type"))
 
-	var response map[string]interface{}
+	var response models.MetricsResponse
 	err := json.Unmarshal(rr.Body.Bytes(), &response)
 	require.NoError(t, err)
-	assert.Contains(t, response, "total_requests")
-	assert.Contains(t, response, "total_errors")
+	assert.Equal(t, models.MetricsSchemaVersion, response.SchemaVersion)
+	assert.Equal(t, int64(1), response.TotalRequests)
+	assert.Equal(t, int64(1), response.TotalErrors)
+	require.Contains(t, response.Endpoints, "user-service")
+	assert.Equal(t, int64(1), response.Endpoints["user-service"].RequestCount)
+
+	var raw map[string]interface{}
+	err = json.Unmarshal(rr.Body.Bytes(), &raw)
+	require.NoError(t, err)
+	assert.Contains(t, raw, "schema_version")
+	assert.Contains(t, raw, "average_response_time_ns")
+	assert.NotContains(t, raw, "average_response_time")
+
+	endpointsRaw, ok := raw["endpoints"].(map[string]interface{})
+	require.True(t, ok)
+
+	endpointRaw, ok := endpointsRaw["user-service"].(map[string]interface{})
+	require.True(t, ok)
+	assert.Contains(t, endpointRaw, "request_count")
+	assert.Contains(t, endpointRaw, "error_count")
+	assert.Contains(t, endpointRaw, "total_response_time_ns")
+	assert.Contains(t, endpointRaw, "average_response_time_ns")
+	assert.NotContains(t, endpointRaw, "RequestCount")
 }
 
 func TestHandler_ConfigEndpoint_Success(t *testing.T) {

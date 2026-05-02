@@ -44,27 +44,30 @@ curl http://localhost:8080/metrics
 Example response:
 ```json
 {
+  "schema_version": "1.0",
   "total_requests": 10,
   "total_errors": 2,
-  "average_response_time": 125000000,
+  "average_response_time_ns": 125000000,
   "endpoints": {
     "user-service": {
-      "RequestCount": 8,
-      "ErrorCount": 1,
-      "TotalResponseTime": 1000000000,
-      "AvgResponseTime": 125000000
+      "request_count": 8,
+      "error_count": 1,
+      "total_response_time_ns": 1000000000,
+      "average_response_time_ns": 125000000
     },
     "posts-service": {
-      "RequestCount": 2,
-      "ErrorCount": 1,
-      "TotalResponseTime": 250000000,
-      "AvgResponseTime": 125000000
+      "request_count": 2,
+      "error_count": 1,
+      "total_response_time_ns": 250000000,
+      "average_response_time_ns": 125000000
     }
   }
 }
 ```
 
-Note: Response times are in nanoseconds.
+Units: all `*_ns` fields are durations in nanoseconds.
+
+Compatibility guarantee: metric response field names are snake_case and `schema_version` identifies the response contract. Clients should pin to a known schema version and ignore unknown fields for forward compatibility.
 
 ## Log Levels
 

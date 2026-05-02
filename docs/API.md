@@ -40,27 +40,30 @@ Get service metrics including request counts, error rates, and response times.
 **Response:**
 ```json
 {
+  "schema_version": "1.0",
   "total_requests": 150,
   "total_errors": 5,
-  "average_response_time": 125000000,
+  "average_response_time_ns": 125000000,
   "endpoints": {
     "user-service": {
-      "RequestCount": 100,
-      "ErrorCount": 2,
-      "TotalResponseTime": 10000000000,
-      "AvgResponseTime": 100000000
+      "request_count": 100,
+      "error_count": 2,
+      "total_response_time_ns": 10000000000,
+      "average_response_time_ns": 100000000
     },
     "posts-service": {
-      "RequestCount": 50,
-      "ErrorCount": 3,
-      "TotalResponseTime": 7500000000,
-      "AvgResponseTime": 150000000
+      "request_count": 50,
+      "error_count": 3,
+      "total_response_time_ns": 7500000000,
+      "average_response_time_ns": 150000000
     }
   }
 }
 ```
 
-**Note:** Response times are in nanoseconds (1 second = 1,000,000,000 nanoseconds).
+**Units:** All `*_ns` fields are durations in nanoseconds (1 second = 1,000,000,000 nanoseconds).
+
+**Compatibility guarantee:** Response field names are snake_case and `schema_version` version-locks the response contract. Clients should validate `schema_version` and ignore unknown fields for forward compatibility.
 
 **Status Codes:**
 - `200 OK` - Metrics retrieved successfully
